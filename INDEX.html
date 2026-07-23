@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Command Tower</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Command Tower">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#14141c">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root{
+  --bg:#14141c;
+  --surface:#1e1e2a;
+  --surface2:#282836;
+  --ink:#f5f2ea;
+  --ink-dim:#9a96a8;
+  --w:#f4e1a0; --u:#3b9eff; --b:#b978e0; --r:#ff5d4e; --g:#3fc17a; --c:#a9b2c3;
+  --danger:#ff4747;
+  --radius:20px;
+  --font-display:'Fredoka',sans-serif;
+  --font-body:'Nunito',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+.ctshell{
+  font-family:var(--font-body);
+  background:var(--bg);
+  color:var(--ink);
+  min-height:100vh;
+  max-width:480px;
+  margin:0 auto;
+  padding-bottom:110px;
+  position:relative;
+}
+.ctshell h1,.ctshell h2,.ctshell .num{font-family:var(--font-display);}
+button{font-family:inherit;border:none;cursor:pointer;color:inherit;background:none;}
+input{font-family:inherit;}
+
+/* ---------- HOME ---------- */
+.home{padding:60px 24px 40px;display:flex;flex-direction:column;min-height:100vh;}
+.home-hero{text-align:center;margin-bottom:40px;}
+.home-hero .wheel{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:conic-gradient(var(--w),var(--u),var(--b),var(--r),var(--g),var(--w));box-shadow:0 0 28px rgba(255,255,255,0.15);}
+.home-hero h1{font-size:28px;margin:0 0 6px;}
+.home-hero p{color:var(--ink-dim);font-size:14px;margin:0;}
+.home-btn{width:100%;padding:18px;border-radius:18px;margin-bottom:14px;background:var(--surface);text-align:left;}
+.home-btn:active{transform:scale(0.98);}
+.home-btn .t{font-weight:800;font-size:16px;margin-bottom:2px;}
+.home-btn .d{color:var(--ink-dim);font-size:12.5px;}
+.home-btn.primary{background:conic-gradient(var(--w),var(--u),var(--b),var(--r),var(--g),var(--w));color:#14141c;}
+.home-btn.primary .d{color:rgba(20,20,28,0.7);}
+
+/* ---------- SETUP / CONNECT ---------- */
+.setup{padding:28px 20px 40px;}
+.setup-hero{text-align:center;margin-bottom:26px;}
+.setup-hero .wheel{width:56px;height:56px;margin:0 auto 10px;border-radius:50%;background:conic-gradient(var(--w),var(--u),var(--b),var(--r),var(--g),var(--w));box-shadow:0 0 24px rgba(255,255,255,0.15);}
+.setup-hero h1{font-size:24px;margin:0 0 4px;}
+.setup-hero p{color:var(--ink-dim);font-size:14px;margin:0;}
+.back-link{color:var(--ink-dim);font-weight:700;font-size:13px;margin-bottom:14px;display:inline-block;}
+
+.card-block{background:var(--surface);border-radius:var(--radius);padding:18px;margin-bottom:16px;}
+.card-block h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-dim);margin:0 0 12px;font-weight:700;}
+
+.stepper{display:flex;align-items:center;justify-content:center;gap:22px;}
+.stepper button{width:44px;height:44px;border-radius:50%;background:var(--surface2);font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.stepper button:active{transform:scale(0.9);}
+.stepper .count{font-size:32px;font-weight:700;min-width:40px;text-align:center;}
+
+.life-opts{display:flex;gap:8px;flex-wrap:wrap;}
+.chip-opt{flex:1;padding:10px 0;text-align:center;border-radius:12px;background:var(--surface2);font-weight:800;font-size:14px;color:var(--ink-dim);}
+.chip-opt.sel{background:var(--ink);color:var(--bg);}
+.custom-life-input{width:100%;margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface2);color:var(--ink);font-weight:700;font-size:16px;text-align:center;}
+
+.player-setup-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.player-setup-row:last-child{margin-bottom:0;}
+.player-setup-row input{flex:1;min-width:0;background:var(--surface2);border-radius:10px;padding:10px 12px;color:var(--ink);font-weight:700;font-size:15px;}
+.swatches{display:flex;gap:6px;}
+.swatch{width:26px;height:26px;border-radius:50%;border:2px solid transparent;flex-shrink:0;}
+.swatch.selected{border-color:var(--ink);transform:scale(1.15);}
+
+.code-input{width:100%;padding:16px;border-radius:14px;background:var(--surface2);color:var(--ink);font-weight:800;font-size:28px;text-align:center;letter-spacing:.25em;font-family:var(--font-mono);text-transform:uppercase;}
+.error-text{color:var(--danger);font-size:13px;font-weight:700;margin-top:10px;text-align:center;}
+
+.start-btn{width:100%;padding:16px;border-radius:16px;font-size:17px;font-weight:700;background:conic-gradient(var(--w),var(--u),var(--b),var(--r),var(--g),var(--w));color:#14141c;text-shadow:0 1px 0 rgba(255,255,255,0.3);box-shadow:0 8px 24px rgba(0,0,0,0.35);}
+.start-btn:active{transform:scale(0.98);}
+.start-btn:disabled{opacity:0.5;}
+
+.room-share{background:var(--surface);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:16px;}
+.room-share .lbl{color:var(--ink-dim);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;}
+.room-share .code{font-family:var(--font-mono);font-size:38px;font-weight:700;letter-spacing:.15em;margin:8px 0;}
+.copy-btn{background:var(--surface2);padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;}
+.copy-btn:active{transform:scale(0.95);}
+
+/* ---------- GAME ---------- */
+.topbar{position:sticky;top:0;z-index:5;background:rgba(20,20,28,0.92);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:space-between;padding:14px 16px;}
+.turn-pill{display:flex;align-items:center;gap:8px;}
+.turn-dot{width:12px;height:12px;border-radius:50%;box-shadow:0 0 10px currentColor;}
+.turn-text{font-weight:800;font-size:14px;}
+.turn-text .round{color:var(--ink-dim);font-weight:700;font-size:12px;display:flex;align-items:center;gap:6px;}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--g);animation:blink 1.6s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.25;}}
+.icon-btn{width:38px;height:38px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:17px;}
+.icon-btn:active{transform:scale(0.9);}
+.topbar-icons{display:flex;gap:8px;}
+
+.players{padding:14px 16px 0;}
+.player-card{position:relative;border-radius:var(--radius);padding:16px;margin-bottom:14px;background:var(--surface);border:3px solid var(--pc,#888);overflow:hidden;transition:box-shadow .3s;}
+.player-card.active{animation:glow 1.8s ease-in-out infinite;}
+@keyframes glow{0%,100%{box-shadow:0 0 0px var(--pc);}50%{box-shadow:0 0 22px var(--pc);}}
+.player-card.defeated{opacity:0.45;filter:grayscale(0.8);}
+.player-card.readonly{opacity:0.92;}
+.ribbon{position:absolute;top:10px;right:-30px;background:var(--pc);color:#14141c;font-size:10px;font-weight:800;padding:3px 34px;transform:rotate(35deg);letter-spacing:.05em;}
+.pc-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.pc-dot{width:14px;height:14px;border-radius:50%;background:var(--pc);flex-shrink:0;}
+.pc-name{font-weight:800;font-size:15px;}
+.pc-you{font-size:10px;font-weight:800;color:var(--ink-dim);background:var(--surface2);padding:2px 8px;border-radius:8px;}
+.defeated-tag{margin-left:auto;font-size:11px;font-weight:800;color:var(--danger);}
+
+.life-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.life-btn{width:52px;height:52px;border-radius:50%;background:var(--surface2);font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--pc);}
+.life-btn:active{transform:scale(0.88);}
+.life-num{font-size:56px;font-weight:700;text-align:center;flex:1;line-height:1;}
+.life-sub{display:flex;justify-content:center;gap:10px;margin-top:6px;}
+.life-sub button{font-size:12px;font-weight:800;color:var(--ink-dim);padding:4px 10px;border-radius:8px;background:var(--surface2);}
+.life-sub button:active{transform:scale(0.92);}
+
+.cmd-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+.cmd-chip{display:flex;align-items:center;gap:6px;background:var(--surface2);border-radius:12px;padding:6px 8px;font-size:12px;font-weight:700;}
+.cmd-chip.lethal{background:var(--danger);color:#fff;animation:pulseLethal 1s infinite;}
+@keyframes pulseLethal{0%,100%{opacity:1;}50%{opacity:0.6;}}
+.cmd-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.cmd-num{min-width:16px;text-align:center;font-family:var(--font-mono);}
+.cmd-chip button{width:18px;height:18px;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+
+.stat-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;}
+.poison-chip{display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:12px;padding:6px 10px;font-size:12px;font-weight:800;}
+.poison-chip.warn{background:rgba(63,193,122,0.18);color:var(--g);}
+.poison-chip.lethal{background:var(--danger);color:#fff;animation:pulseLethal 1s infinite;}
+.poison-chip button{width:20px;height:20px;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+.mini-lbl{font-size:11px;font-weight:800;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:12px;}
+.mana-row{display:flex;gap:6px;margin-top:6px;}
+.mana-cell{flex:1;background:var(--surface2);border-radius:10px;overflow:hidden;}
+.mana-cell .mc-add{display:block;width:100%;padding:7px 2px 4px;text-align:center;}
+.mana-cell .mc-add:active{transform:scale(0.94);}
+.mana-cell .sym{width:15px;height:15px;border-radius:50%;margin:0 auto 3px;}
+.mana-cell .cnt{font-family:var(--font-mono);font-weight:700;font-size:14px;}
+.mana-cell .mc-sub{display:block;width:100%;font-size:12px;font-weight:800;color:var(--ink-dim);padding:3px 0 5px;border-top:1px solid rgba(255,255,255,0.05);}
+.mana-clear{font-size:11px;font-weight:800;color:var(--ink-dim);margin-top:8px;width:100%;text-align:center;background:var(--surface2);border-radius:8px;padding:6px 0;}
+.mana-row-view{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.mana-chip{display:flex;align-items:center;gap:5px;background:var(--surface2);border-radius:10px;padding:5px 9px;font-size:12px;font-weight:800;font-family:var(--font-mono);}
+.mana-chip .sym{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.mana-none{color:var(--ink-dim);font-size:12px;font-weight:700;margin-top:6px;display:inline-block;}
+
+.monarch-chip{display:flex;align-items:center;gap:6px;border-radius:12px;padding:6px 12px;font-size:12px;font-weight:800;background:var(--surface2);color:var(--ink-dim);}
+.monarch-chip.held{background:linear-gradient(90deg,#f4e1a0,#e9c46a);color:#14141c;box-shadow:0 0 14px rgba(244,225,160,0.4);}
+.monarch-chip button{font-weight:800;font-size:12px;}
+.crown-badge{position:absolute;top:10px;left:12px;font-size:18px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));animation:crownFloat 2.4s ease-in-out infinite;}
+@keyframes crownFloat{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-3px) rotate(4deg);}}
+
+.trig-toggle{margin-top:14px;width:100%;text-align:left;font-size:13px;font-weight:800;color:var(--ink-dim);display:flex;align-items:center;justify-content:space-between;padding:8px 0 0;border-top:1px solid rgba(255,255,255,0.06);}
+.trig-panel{margin-top:8px;display:flex;flex-direction:column;gap:8px;}
+.trig-item{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;}
+.trig-box{width:20px;height:20px;border-radius:6px;background:var(--surface2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;}
+.trig-box.checked{background:var(--pc);color:#14141c;}
+.trig-item.checked span{text-decoration:line-through;color:var(--ink-dim);}
+
+/* ---------- BOTTOM BAR ---------- */
+.bottombar{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;padding:12px 16px 18px;background:linear-gradient(0deg,rgba(20,20,28,1) 60%,rgba(20,20,28,0));display:flex;gap:10px;align-items:center;}
+.next-turn-btn{flex:1;padding:15px;border-radius:16px;font-size:15px;font-weight:800;background:var(--pcactive,#3fc17a);color:#14141c;box-shadow:0 8px 20px rgba(0,0,0,0.4);}
+.next-turn-btn:active{transform:scale(0.98);}
+.fab{width:52px;height:52px;border-radius:50%;background:var(--surface2);font-size:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(0,0,0,0.4);}
+.fab:active{transform:scale(0.9);}
+
+/* ---------- SHEET ---------- */
+.sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10;display:flex;align-items:flex-end;justify-content:center;}
+.sheet{width:100%;max-width:480px;background:var(--surface);border-radius:24px 24px 0 0;padding:22px 20px 30px;animation:slideUp .25s ease-out;max-height:85vh;overflow-y:auto;position:relative;}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.sheet h2{font-size:18px;margin:0 0 16px;}
+.sheet-close{position:absolute;top:16px;right:16px;}
+.sheet-btn{width:100%;padding:14px;border-radius:14px;background:var(--surface2);font-weight:800;font-size:14px;margin-bottom:10px;text-align:center;}
+.sheet-btn:active{transform:scale(0.98);}
+.sheet-btn.danger{background:rgba(255,71,71,0.15);color:var(--danger);}
+.die-result{text-align:center;padding:18px 0;}
+.die-result .num{font-size:52px;font-weight:700;}
+.die-result .label{color:var(--ink-dim);font-size:13px;font-weight:700;margin-top:4px;}
+.rank-list{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+.rank-row{display:flex;align-items:center;gap:10px;background:var(--surface2);padding:8px 12px;border-radius:12px;font-weight:700;font-size:13px;}
+.rank-row .rn{font-family:var(--font-mono);color:var(--ink-dim);width:18px;}
+.rank-row.winner{outline:2px solid var(--w);}
+
+.trig-manage-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.trig-manage-row span{flex:1;font-size:14px;font-weight:700;}
+.trig-manage-row button{width:26px;height:26px;border-radius:50%;background:var(--surface2);font-size:14px;}
+.add-trig-row{display:flex;gap:8px;margin-top:6px;}
+.add-trig-row input{flex:1;background:var(--surface2);border-radius:10px;padding:10px 12px;color:var(--ink);}
+.add-trig-row button{background:var(--g);color:#14141c;padding:0 16px;border-radius:10px;font-weight:800;}
+.timing-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.timing-opt{flex:1;min-width:88px;padding:8px 4px;border-radius:10px;background:var(--surface2);color:var(--ink-dim);font-size:11px;font-weight:800;text-align:center;}
+.timing-opt.sel{background:var(--ink);color:var(--bg);}
+.timing-tag{font-size:10px;font-weight:800;padding:3px 8px;border-radius:8px;background:var(--surface2);color:var(--ink-dim);white-space:nowrap;}
+.timing-tag.start{color:var(--g);}
+.timing-tag.end{color:var(--u);}
+
+.room-code-chip{display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:14px;padding:14px 16px;margin-bottom:16px;}
+.room-code-chip .code{font-family:var(--font-mono);font-size:22px;font-weight:700;letter-spacing:.15em;}
+
+.spin{animation:spin .5s ease-out;}
+@keyframes spin{from{transform:rotate(0deg) scale(1.3);}to{transform:rotate(360deg) scale(1);}}
+
+body{margin:0;background:#14141c;}
+</style>
+</head>
+<body>
+
+<div id="ct-app" class="ctshell"></div>
+
+<script>
+(function(){
+  // ============================================================
+  //  SYNC SETUP — paste your free Supabase details here.
+  //  Full instructions are in the chat. Leave blank to run in
+  //  pass-and-play-only mode (everything works except cross-phone sync).
+  // ============================================================
+  const SUPABASE_URL = "https://muqxzeaqdjixgsvyvkkn.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11cXh6ZWFxZGppeGdzdnl2a2tuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NDU5ODIsImV4cCI6MjEwMDIyMTk4Mn0.pAAmkNohJKy3Tp4CytSfwh3A9aaAL9G4uKTbbmnn7Ko";
+  // ============================================================
+
+  const HAS_SUPABASE = SUPABASE_URL && SUPABASE_ANON_KEY;
+
+  // Storage adapter: Supabase if configured, else Claude's built-in
+  // window.storage if present, else null (sync unavailable).
+  const store = (function(){
+    if(HAS_SUPABASE){
+      const base = SUPABASE_URL.replace(/\/$/,'') + '/rest/v1/rooms_kv';
+      const headers = {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json'
+      };
+      return {
+        available: true,
+        async get(key){
+          const res = await fetch(`${base}?k=eq.${encodeURIComponent(key)}&select=v`, {headers});
+          if(!res.ok) throw new Error('get failed');
+          const rows = await res.json();
+          if(!rows.length) return null;
+          return { value: rows[0].v };
+        },
+        async set(key, value){
+          const res = await fetch(base, {
+            method:'POST',
+            headers:{...headers, 'Prefer':'resolution=merge-duplicates,return=minimal'},
+            body: JSON.stringify({ k:key, v:value })
+          });
+          if(!res.ok) throw new Error('set failed');
+          return { value };
+        }
+      };
+    }
+    if(typeof window!=='undefined' && window.storage){
+      return {
+        available: true,
+        get:(k)=>window.storage.get(k,true),
+        set:(k,v)=>window.storage.set(k,v,true)
+      };
+    }
+    return { available:false, get:async()=>null, set:async()=>null };
+  })();
+
+  const COLORS = {w:'#f4e1a0',u:'#3b9eff',b:'#b978e0',r:'#ff5d4e',g:'#3fc17a',c:'#a9b2c3'};
+  const ORDER = ['g','u','r','w','b','c'];
+  const DEFAULT_TEMPLATES = [
+    {id:'t1',text:'Upkeep trigger',timing:'start'},
+    {id:'t2',text:'Draw step',timing:'start'},
+    {id:'t3',text:'Attack trigger',timing:'none'},
+    {id:'t4',text:'End step trigger',timing:'end'}
+  ];
+
+  let state = {
+    screen:'home', // home | connect | local-setup | local-game | synced-game
+    // connect form
+    formMode:'host', // host | join
+    formCode:'',
+    formName:'',
+    formColor:'g',
+    formLife:'40',
+    formCustomLife:40,
+    formError:'',
+    formBusy:false,
+    // local (single device) mode
+    numPlayers:4,
+    lifeMode:'40',
+    customLife:40,
+    setupNames:['','','','','',''],
+    setupColors:[0,1,2,3,4,5].map(i=>ORDER[i%6]),
+    players:[],
+    activeIndex:0,
+    round:1,
+    // synced mode
+    roomCode:null,
+    myId:null,
+    myPlayer:null,
+    otherPlayers:{},
+    meta:null,
+    lastTurnSignature:null,
+    pollTimer:null,
+    // shared
+    soundOn:true,
+    triggerTemplates: DEFAULT_TEMPLATES.map(t=>({...t})),
+    expanded:{},
+    sheet:null,
+    diceResult:null,
+    diceRanking:null,
+    diceSpinning:false,
+    newTriggerText:'',
+    newTriggerTiming:'none' // none | start | end
+  };
+
+  let audioCtx=null;
+  const CHIME_NOTES = {
+    yourturn: [[523.25,0],[659.25,0.13],[783.99,0.26]],   // rising 3-note — it's your turn
+    start:    [[880,0],[1108.73,0.1]],                    // bright quick ping — start-of-turn trigger checked
+    end:      [[698.46,0],[493.88,0.11]]                  // soft falling tone — end-of-turn trigger checked
+  };
+  function playChime(kind){
+    if(!state.soundOn) return;
+    try{
+      audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+      if(audioCtx.state==='suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      (CHIME_NOTES[kind]||CHIME_NOTES.yourturn).forEach(([f,off])=>{
+        const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+        o.type='sine'; o.frequency.value=f;
+        g.gain.setValueAtTime(0.0001, now+off);
+        g.gain.exponentialRampToValueAtTime(0.22, now+off+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, now+off+0.5);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(now+off); o.stop(now+off+0.6);
+      });
+    }catch(e){}
+  }
+
+  function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.firstElementChild; }
+  function genCode(){ const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<4;i++) s+=chars[Math.floor(Math.random()*chars.length)]; return s; }
+  function genId(){ return Math.random().toString(36).slice(2,8); }
+
+  function render(){
+    const app = document.getElementById('ct-app');
+    let html='';
+    if(state.screen==='home') html=renderHome();
+    else if(state.screen==='connect') html=renderConnect();
+    else if(state.screen==='local-setup') html=renderLocalSetup();
+    else html=renderGameScreen();
+    app.innerHTML = html;
+    if(state.sheet){ app.appendChild(el(renderSheet())); }
+  }
+
+  // ================= HOME =================
+  function renderHome(){
+    const syncOn = store.available;
+    return `
+      <div class="home">
+        <div class="home-hero">
+          <div class="wheel"></div>
+          <h1>Command Tower</h1>
+          <p>Life, turns, commander damage &amp; triggers</p>
+        </div>
+        <button class="home-btn primary" ${syncOn?`onclick="CT.goConnect('host')"`:`onclick="CT.syncUnavailable()"`}>
+          <div class="t">Host a synced game ${syncOn?'':'🔒'}</div>
+          <div class="d">${syncOn?'Everyone joins from their own phone and stays in sync':'Sync isn\'t set up on this copy — tap to learn how'}</div>
+        </button>
+        <button class="home-btn" ${syncOn?`onclick="CT.goConnect('join')"`:`onclick="CT.syncUnavailable()"`}>
+          <div class="t">Join a synced game ${syncOn?'':'🔒'}</div>
+          <div class="d">${syncOn?'Have a room code? Jump into a game in progress':'Requires sync setup — tap to learn how'}</div>
+        </button>
+        <button class="home-btn" onclick="CT.goLocalSetup()">
+          <div class="t">Pass-and-play</div>
+          <div class="d">Everyone shares just this one phone</div>
+        </button>
+      </div>`;
+  }
+
+  // ================= CONNECT (host / join) =================
+  function renderConnect(){
+    const isHost = state.formMode==='host';
+    let swatches='';
+    Object.keys(COLORS).forEach(k=>{
+      swatches += `<button class="swatch ${k===state.formColor?'selected':''}" style="background:${COLORS[k]}" onclick="CT.setFormColor('${k}')"></button>`;
+    });
+    return `
+      <div class="setup">
+        <button class="back-link" onclick="CT.goHome()">← Back</button>
+        <div class="setup-hero">
+          <div class="wheel"></div>
+          <h1>${isHost?'Host a game':'Join a game'}</h1>
+          <p>${isHost?'Set the rules, then share the code that appears':'Enter the room code your group shared'}</p>
+        </div>
+
+        ${!isHost?`
+        <div class="card-block">
+          <h2>Room code</h2>
+          <input class="code-input" maxlength="4" placeholder="ABCD" value="${state.formCode}" oninput="CT.setFormCode(this.value)">
+        </div>`:''}
+
+        ${isHost?`
+        <div class="card-block">
+          <h2>Starting life</h2>
+          <div class="life-opts">
+            <div class="chip-opt ${state.formLife==='20'?'sel':''}" onclick="CT.setFormLife('20')">20</div>
+            <div class="chip-opt ${state.formLife==='40'?'sel':''}" onclick="CT.setFormLife('40')">40</div>
+            <div class="chip-opt ${state.formLife==='custom'?'sel':''}" onclick="CT.setFormLife('custom')">Custom</div>
+          </div>
+          ${state.formLife==='custom' ? `<input type="number" class="custom-life-input" value="${state.formCustomLife}" oninput="CT.setFormCustomLife(this.value)">` : ''}
+        </div>`:''}
+
+        <div class="card-block">
+          <h2>You</h2>
+          <div class="player-setup-row">
+            <input maxlength="14" placeholder="Your name" value="${state.formName}" oninput="CT.setFormName(this.value)">
+            <div class="swatches">${swatches}</div>
+          </div>
+        </div>
+
+        ${state.formError?`<div class="error-text">${state.formError}</div>`:''}
+        <button class="start-btn" style="margin-top:6px" ${state.formBusy?'disabled':''} onclick="CT.submitConnect()">${state.formBusy?'Connecting…':(isHost?'Create room':'Join room')}</button>
+      </div>`;
+  }
+
+  // ================= LOCAL SETUP (single device) =================
+  function renderLocalSetup(){
+    let rows='';
+    for(let i=0;i<state.numPlayers;i++){
+      const colorKey = state.setupColors[i];
+      let swatches='';
+      Object.keys(COLORS).forEach(k=>{
+        swatches += `<button class="swatch ${k===colorKey?'selected':''}" style="background:${COLORS[k]}" onclick="CT.setLocalColor(${i},'${k}')"></button>`;
+      });
+      rows += `
+        <div class="player-setup-row">
+          <input maxlength="14" placeholder="Player ${i+1}" value="${state.setupNames[i]||''}" oninput="CT.setLocalName(${i},this.value)">
+          <div class="swatches">${swatches}</div>
+        </div>`;
+    }
+    return `
+      <div class="setup">
+        <button class="back-link" onclick="CT.goHome()">← Back</button>
+        <div class="setup-hero">
+          <div class="wheel"></div>
+          <h1>Pass-and-play</h1>
+          <p>One phone, everyone takes turns holding it</p>
+        </div>
+        <div class="card-block">
+          <h2>Players</h2>
+          <div class="stepper">
+            <button onclick="CT.changePlayers(-1)">−</button>
+            <div class="count">${state.numPlayers}</div>
+            <button onclick="CT.changePlayers(1)">+</button>
+          </div>
+        </div>
+        <div class="card-block">
+          <h2>Starting life</h2>
+          <div class="life-opts">
+            <div class="chip-opt ${state.lifeMode==='20'?'sel':''}" onclick="CT.setLifeMode('20')">20</div>
+            <div class="chip-opt ${state.lifeMode==='40'?'sel':''}" onclick="CT.setLifeMode('40')">40</div>
+            <div class="chip-opt ${state.lifeMode==='custom'?'sel':''}" onclick="CT.setLifeMode('custom')">Custom</div>
+          </div>
+          ${state.lifeMode==='custom' ? `<input type="number" class="custom-life-input" value="${state.customLife}" oninput="CT.setCustomLife(this.value)">` : ''}
+        </div>
+        <div class="card-block">
+          <h2>Names &amp; colors</h2>
+          ${rows}
+        </div>
+        <button class="start-btn" onclick="CT.startLocalGame()">Start Game</button>
+      </div>`;
+  }
+
+  // ================= GAME (shared by local + synced) =================
+  function currentPlayers(){
+    if(state.screen==='synced-game'){
+      return (state.meta.playerIds||[]).map(id=> id===state.myId ? state.myPlayer : state.otherPlayers[id]).filter(Boolean);
+    }
+    return state.players;
+  }
+  function currentActiveId(){
+    if(state.screen==='synced-game'){
+      return (state.meta.playerIds||[])[state.meta.activeIndex];
+    }
+    const p = state.players[state.activeIndex];
+    return p ? p.id : null;
+  }
+  function currentRound(){ return state.screen==='synced-game' ? state.meta.round : state.round; }
+  function currentTemplates(){ return state.screen==='synced-game' ? (state.meta.triggerTemplates||[]) : state.triggerTemplates; }
+  function currentMonarch(){ return state.screen==='synced-game' ? (state.meta.monarch||null) : (state.monarch||null); }
+  function isEditable(id){ return state.screen==='synced-game' ? id===state.myId : true; }
+
+  function renderGameScreen(){
+    const players = currentPlayers();
+    const activeId = currentActiveId();
+    const active = players.find(p=>p.id===activeId) || players[0];
+    if(!active) return `<div class="players"><p style="padding:40px;text-align:center;color:var(--ink-dim)">Waiting for players to join…</p></div>`;
+    const cards = players.map(p=>renderPlayerCard(p, players, p.id===activeId)).join('');
+    const synced = state.screen==='synced-game';
+    return `
+      <div class="topbar">
+        <div class="turn-pill">
+          <div class="turn-dot" style="background:${COLORS[active.color]};color:${COLORS[active.color]}"></div>
+          <div class="turn-text">${active.name}'s turn
+            <span class="round">Round ${currentRound()} ${synced?'<span class="live-dot"></span> live':''}</span>
+          </div>
+        </div>
+        <div class="topbar-icons">
+          <button class="icon-btn" onclick="CT.openSheet('dice')">🎲</button>
+          <button class="icon-btn" onclick="CT.openSheet('settings')">⚙️</button>
+        </div>
+      </div>
+      <div class="players">${cards}</div>
+      <div class="bottombar">
+        <button class="fab" onclick="CT.openSheet('dice')">🎲</button>
+        <button class="next-turn-btn" style="--pcactive:${COLORS[active.color]}" onclick="CT.nextTurn()">Next Turn →</button>
+      </div>`;
+  }
+
+  function renderManaRow(p, editable){
+    const mana = p.mana||{};
+    const total = Object.keys(mana).reduce((a,k)=>a+(mana[k]||0),0);
+
+    if(!editable){
+      const chips = Object.keys(COLORS)
+        .filter(k=>(mana[k]||0)>0)
+        .map(k=>`<div class="mana-chip"><div class="sym" style="background:${COLORS[k]}"></div><span>${mana[k]}</span></div>`)
+        .join('');
+      return `
+        <div class="mini-lbl">Floating mana</div>
+        <div class="mana-row-view">${chips || '<span class="mana-none">None</span>'}</div>`;
+    }
+
+    const cells = Object.keys(COLORS).map(k=>`
+      <div class="mana-cell">
+        <button class="mc-add" onclick="CT.adjustMana('${p.id}','${k}',1)">
+          <div class="sym" style="background:${COLORS[k]}"></div>
+          <div class="cnt">${mana[k]||0}</div>
+        </button>
+        <button class="mc-sub" onclick="CT.adjustMana('${p.id}','${k}',-1)">−</button>
+      </div>`).join('');
+    return `
+      <div class="mini-lbl">Floating mana · tap a color to add</div>
+      <div class="mana-row">${cells}</div>
+      ${total>0?`<button class="mana-clear" onclick="CT.clearMana('${p.id}')">Clear floating mana (${total})</button>`:''}`;
+  }
+
+  function renderPlayerCard(p, allPlayers, isActive){
+    const editable = isEditable(p.id);
+    const poison = p.poison||0;
+    const defeated = p.life<=0 || poison>=10;
+    const checkedCount = (p.triggers||[]).filter(t=>t.checked).length;
+    const expanded = !!state.expanded[p.id];
+    const isMe = state.screen==='synced-game' && p.id===state.myId;
+    const isMonarch = currentMonarch()===p.id;
+
+    let chips='';
+    allPlayers.forEach(op=>{
+      if(op.id===p.id) return;
+      const dmg = (p.cmdDmg && p.cmdDmg[op.id]) || 0;
+      const lethal = dmg>=21;
+      chips += `
+        <div class="cmd-chip ${lethal?'lethal':''}">
+          <div class="cmd-dot" style="background:${COLORS[op.color]}"></div>
+          ${editable?`<button onclick="CT.cmdDmg('${p.id}','${op.id}',-1)">−</button>`:''}
+          <div class="cmd-num">${dmg}</div>
+          ${editable?`<button onclick="CT.cmdDmg('${p.id}','${op.id}',1)">+</button>`:''}
+        </div>`;
+    });
+
+    let trigPanel='';
+    if(expanded){
+      trigPanel = `<div class="trig-panel">` + (p.triggers||[]).map(t=>`
+        <div class="trig-item ${t.checked?'checked':''}" ${editable?`onclick="CT.toggleTrigger('${p.id}','${t.id}')"`:''}>
+          <div class="trig-box ${t.checked?'checked':''}">${t.checked?'✓':''}</div>
+          <span>${t.text}${t.timing==='start'?' 🔔':t.timing==='end'?' 🔕':''}</span>
+        </div>`).join('') + `</div>`;
+    }
+
+    return `
+      <div class="player-card ${isActive?'active':''} ${defeated?'defeated':''} ${editable?'':'readonly'}" style="--pc:${COLORS[p.color]}">
+        ${isMonarch?'<div class="crown-badge">👑</div>':''}
+        ${isActive?'<div class="ribbon">TURN</div>':''}
+        <div class="pc-header">
+          <div class="pc-dot"></div>
+          <div class="pc-name">${p.name}</div>
+          ${isMe?'<div class="pc-you">YOU</div>':''}
+          ${defeated?'<div class="defeated-tag">DEFEATED</div>':''}
+        </div>
+        <div class="life-row">
+          ${editable?`<button class="life-btn" ${holdAttrs(p.id,-1)}>−</button>`:'<div style="width:52px"></div>'}
+          <div class="life-num">${p.life}</div>
+          ${editable?`<button class="life-btn" ${holdAttrs(p.id,1)}>+</button>`:'<div style="width:52px"></div>'}
+        </div>
+        ${editable?`<div class="life-sub"><button onclick="CT.adjustLife('${p.id}',-5)">−5</button><button onclick="CT.adjustLife('${p.id}',5)">+5</button></div>`:''}
+        <div class="cmd-row">${chips}</div>
+        <div class="stat-row">
+          <div class="poison-chip ${poison>=10?'lethal':(poison>0?'warn':'')}">
+            <span>☠</span>
+            ${editable?`<button onclick="CT.adjustPoison('${p.id}',-1)">−</button>`:''}
+            <span class="cmd-num">${poison}</span>
+            ${editable?`<button onclick="CT.adjustPoison('${p.id}',1)">+</button>`:''}
+            <span style="opacity:.75">poison</span>
+          </div>
+          <div class="monarch-chip ${isMonarch?'held':''}">
+            <span>👑</span>
+            ${isMonarch
+              ? `<span>Monarch</span>${editable?`<button onclick="CT.setMonarch(null)">✕</button>`:''}`
+              : (editable?`<button onclick="CT.setMonarch('${p.id}')">Claim</button>`:`<span style="opacity:.6">—</span>`)}
+          </div>
+        </div>
+        ${renderManaRow(p, editable)}
+        <button class="trig-toggle" onclick="CT.toggleExpand('${p.id}')">
+          <span>Triggers (${checkedCount}/${(p.triggers||[]).length})</span><span>${expanded?'▴':'▾'}</span>
+        </button>
+        ${trigPanel}
+      </div>`;
+  }
+
+  function holdAttrs(id,delta){
+    return `onclick="CT.adjustLife('${id}',${delta})" onmousedown="CT.holdStart('${id}',${delta})" onmouseup="CT.holdEnd()" onmouseleave="CT.holdEnd()" ontouchstart="CT.holdStart('${id}',${delta})" ontouchend="CT.holdEnd()"`;
+  }
+
+  // ================= SHEET =================
+  function renderSheet(){
+    if(state.sheet==='dice') return renderDiceSheet();
+    if(state.sheet==='settings') return renderSettingsSheet();
+    return '<div></div>';
+  }
+
+  function renderDiceSheet(){
+    let body = `
+      <button class="sheet-btn" onclick="CT.rollForOrder()">Decide who goes first</button>
+      <button class="sheet-btn" onclick="CT.rollSingle(20)">Roll d20</button>
+      <button class="sheet-btn" onclick="CT.rollSingle(6)">Roll d6</button>
+      <button class="sheet-btn" onclick="CT.rollCoin()">Flip a coin</button>`;
+    if(state.diceRanking){
+      body += `<div class="rank-list">` + state.diceRanking.map((r,idx)=>`
+        <div class="rank-row ${idx===0?'winner':''}">
+          <div class="rn">${idx+1}</div>
+          <div style="width:9px;height:9px;border-radius:50%;background:${COLORS[r.color]}"></div>
+          <div style="flex:1">${r.name}</div>
+          <div class="num" style="font-size:16px">${r.roll}</div>
+        </div>`).join('') + `</div>`;
+    } else if(state.diceResult!==null){
+      body += `<div class="die-result"><div class="num ${state.diceSpinning?'spin':''}">${state.diceResult}</div><div class="label">Result</div></div>`;
+    }
+    return `
+      <div class="sheet-overlay" onclick="if(event.target===this)CT.closeSheet()">
+        <div class="sheet">
+          <button class="icon-btn sheet-close" onclick="CT.closeSheet()">✕</button>
+          <h2>Dice &amp; coin</h2>
+          ${body}
+        </div>
+      </div>`;
+  }
+
+  function renderSettingsSheet(){
+    const templates = currentTemplates();
+    const rows = templates.map(t=>`
+      <div class="trig-manage-row">
+        <span>${t.text}</span>
+        ${t.timing==='start'?'<span class="timing-tag start">🔔 Start</span>':t.timing==='end'?'<span class="timing-tag end">🔕 End</span>':''}
+        <button onclick="CT.removeTrigger('${t.id}')">✕</button>
+      </div>`).join('');
+    const synced = state.screen==='synced-game';
+    return `
+      <div class="sheet-overlay" onclick="if(event.target===this)CT.closeSheet()">
+        <div class="sheet">
+          <button class="icon-btn sheet-close" onclick="CT.closeSheet()">✕</button>
+          ${synced?`
+          <div class="room-code-chip">
+            <div>
+              <div style="font-size:11px;color:var(--ink-dim);font-weight:800;">ROOM CODE</div>
+              <div class="code">${state.roomCode}</div>
+            </div>
+            <button class="copy-btn" onclick="CT.copyCode()">Copy</button>
+          </div>`:''}
+          <h2>Manage triggers</h2>
+          ${rows}
+          <div class="add-trig-row">
+            <input placeholder="New trigger..." value="${state.newTriggerText}" oninput="CT.setNewTrigger(this.value)">
+            <button onclick="CT.addTrigger()">Add</button>
+          </div>
+          <div class="timing-row">
+            <button class="timing-opt ${state.newTriggerTiming==='none'?'sel':''}" onclick="CT.setNewTriggerTiming('none')">No sound</button>
+            <button class="timing-opt ${state.newTriggerTiming==='start'?'sel':''}" onclick="CT.setNewTriggerTiming('start')">🔔 Start of turn</button>
+            <button class="timing-opt ${state.newTriggerTiming==='end'?'sel':''}" onclick="CT.setNewTriggerTiming('end')">🔕 End of turn</button>
+          </div>
+          <div style="height:18px"></div>
+          <h2>Game</h2>
+          <button class="sheet-btn" onclick="CT.toggleSound()">Turn sound: ${state.soundOn?'On 🔔':'Off 🔕'}</button>
+          <button class="sheet-btn ${synced?'danger':''}" onclick="${synced?'CT.leaveRoom()':'CT.newGame()'}">${synced?'Leave room':'New game'}</button>
+        </div>
+      </div>`;
+  }
+
+  // ================= ACTIONS =================
+  let holdTimeout=null, holdInterval=null, writeDebounce=null;
+
+  const CT = {
+    // navigation
+    goHome(){ CT.stopPolling(); state.screen='home'; state.sheet=null; render(); },
+    goConnect(mode){ state.screen='connect'; state.formMode=mode; state.formError=''; state.formCode=''; render(); },
+    goLocalSetup(){ state.screen='local-setup'; render(); },
+    syncUnavailable(){ alert("Cross-phone sync needs a quick one-time setup (free Supabase details pasted into this file). Until then, Pass-and-play works fully on a single phone."); },
+
+    // connect form
+    setFormCode(v){ state.formCode=v.toUpperCase().slice(0,4); },
+    setFormName(v){ state.formName=v; },
+    setFormColor(k){ state.formColor=k; render(); },
+    setFormLife(m){ state.formLife=m; render(); },
+    setFormCustomLife(v){ state.formCustomLife=v; },
+
+    async submitConnect(){
+      state.formError='';
+      const name = state.formName.trim() || 'Player';
+      const color = state.formColor;
+      state.formBusy=true; render();
+      try{
+        if(state.formMode==='host'){
+          const code = genCode();
+          const lifeStart = state.formLife==='custom' ? (parseInt(state.formCustomLife)||40) : parseInt(state.formLife);
+          const meta = { activeIndex:0, round:1, monarch:null, triggerTemplates: DEFAULT_TEMPLATES.map(t=>({...t})), playerIds:[], lifeStart };
+          await store.set(`room:${code}:meta`, JSON.stringify(meta));
+          await CT._joinRoom(code, name, color);
+        } else {
+          const code = state.formCode.trim().toUpperCase();
+          if(code.length<4){ state.formError='Enter the 4-character room code.'; state.formBusy=false; render(); return; }
+          await CT._joinRoom(code, name, color);
+        }
+      } catch(e){
+        state.formError = "Couldn't find that room. Double check the code and try again.";
+        state.formBusy=false; render();
+      }
+    },
+
+    async _joinRoom(code, name, color){
+      const metaRes = await store.get(`room:${code}:meta`);
+      if(!metaRes) throw new Error('not found');
+      let meta = JSON.parse(metaRes.value);
+      if((meta.playerIds||[]).length>=6){ state.formError='This room is full (6 players max).'; state.formBusy=false; render(); return; }
+      const id = genId();
+      const player = { id, name, color, life: meta.lifeStart, poison:0, mana:{w:0,u:0,b:0,r:0,g:0,c:0}, cmdDmg:{}, triggers: meta.triggerTemplates.map(t=>({id:t.id,text:t.text,timing:t.timing||'none',checked:false})) };
+      meta.playerIds = [...(meta.playerIds||[]), id];
+      await store.set(`room:${code}:meta`, JSON.stringify(meta));
+      await store.set(`room:${code}:player:${id}`, JSON.stringify(player));
+
+      state.roomCode = code;
+      state.myId = id;
+      state.myPlayer = player;
+      state.meta = meta;
+      state.otherPlayers = {};
+      state.lastTurnSignature = meta.activeIndex+':'+meta.round;
+      state.formBusy=false;
+      state.screen='synced-game';
+      render();
+      CT.startPolling();
+    },
+
+    copyCode(){
+      try{ navigator.clipboard.writeText(state.roomCode); }catch(e){}
+    },
+
+    startPolling(){
+      CT.stopPolling();
+      state.pollTimer = setInterval(CT.poll, 2500);
+    },
+    stopPolling(){
+      if(state.pollTimer){ clearInterval(state.pollTimer); state.pollTimer=null; }
+    },
+    async poll(){
+      if(state.screen!=='synced-game' || !state.roomCode) return;
+      try{
+        const metaRes = await store.get(`room:${state.roomCode}:meta`);
+        const meta = JSON.parse(metaRes.value);
+        state.meta = meta;
+
+        const others={};
+        for(const pid of (meta.playerIds||[])){
+          if(pid===state.myId) continue;
+          try{
+            const r = await store.get(`room:${state.roomCode}:player:${pid}`);
+            others[pid] = JSON.parse(r.value);
+          }catch(e){ /* not written yet */ }
+        }
+        state.otherPlayers = others;
+
+        // reconcile my triggers against template changes
+        const ids = (meta.triggerTemplates||[]).map(t=>t.id);
+        let changed=false;
+        state.myPlayer.triggers = state.myPlayer.triggers.filter(t=>{
+          const keep = ids.includes(t.id);
+          if(!keep) changed=true;
+          return keep;
+        });
+        (meta.triggerTemplates||[]).forEach(t=>{
+          if(!state.myPlayer.triggers.find(x=>x.id===t.id)){
+            state.myPlayer.triggers.push({id:t.id,text:t.text,timing:t.timing||'none',checked:false});
+            changed=true;
+          }
+        });
+
+        // detect turn change -> reset my triggers
+        const sig = meta.activeIndex+':'+meta.round;
+        if(state.lastTurnSignature!==null && sig!==state.lastTurnSignature){
+          state.myPlayer.triggers.forEach(t=>t.checked=false);
+          changed=true;
+          if((meta.playerIds||[])[meta.activeIndex]===state.myId) playChime('yourturn');
+        }
+        state.lastTurnSignature = sig;
+        if(changed) CT.pushMyPlayer();
+
+        render();
+      }catch(e){ /* room may be temporarily unreachable, skip this tick */ }
+    },
+    pushMyPlayer(){
+      if(!state.roomCode || !state.myPlayer) return;
+      store.set(`room:${state.roomCode}:player:${state.myId}`, JSON.stringify(state.myPlayer)).catch(()=>{});
+    },
+    debouncedPush(){
+      clearTimeout(writeDebounce);
+      writeDebounce = setTimeout(CT.pushMyPlayer, 350);
+    },
+
+    leaveRoom(){ CT.goHome(); },
+
+    // local setup
+    changePlayers(delta){ state.numPlayers = Math.min(6, Math.max(2, state.numPlayers+delta)); render(); },
+    setLocalName(i,val){ state.setupNames[i]=val; },
+    setLocalColor(i,key){ state.setupColors[i]=key; render(); },
+    setLifeMode(mode){ state.lifeMode=mode; render(); },
+    setCustomLife(val){ state.customLife=val; },
+
+    startLocalGame(){
+      const life = state.lifeMode==='custom' ? (parseInt(state.customLife)||40) : parseInt(state.lifeMode);
+      const players=[];
+      for(let i=0;i<state.numPlayers;i++){
+        players.push({
+          id:String(i),
+          name: state.setupNames[i] && state.setupNames[i].trim() ? state.setupNames[i].trim() : `Player ${i+1}`,
+          color: state.setupColors[i],
+          life,
+          poison:0,
+          mana:{w:0,u:0,b:0,r:0,g:0,c:0},
+          cmdDmg:{},
+          triggers: state.triggerTemplates.map(t=>({id:t.id,text:t.text,timing:t.timing||'none',checked:false}))
+        });
+      }
+      players.forEach(p=>{ players.forEach(op=>{ if(op.id!==p.id) p.cmdDmg[op.id]=0; }); });
+      state.players=players;
+      state.activeIndex=0;
+      state.round=1;
+      state.monarch=null;
+      state.screen='local-game';
+      render();
+    },
+    newGame(){ state.screen='local-setup'; state.sheet=null; state.players=[]; render(); },
+
+    // shared game actions (branch on screen)
+    adjustLife(id,delta){
+      if(state.screen==='synced-game'){
+        if(id!==state.myId) return;
+        state.myPlayer.life += delta;
+        CT.debouncedPush();
+      } else {
+        const p = state.players.find(x=>x.id===id);
+        p.life += delta;
+      }
+      render();
+    },
+    holdStart(id,delta){
+      clearTimeout(holdTimeout); clearInterval(holdInterval);
+      holdTimeout = setTimeout(()=>{ holdInterval = setInterval(()=>{ CT.adjustLife(id,delta); },110); },400);
+    },
+    holdEnd(){ clearTimeout(holdTimeout); clearInterval(holdInterval); },
+
+    cmdDmg(id,opId,delta){
+      const applyTo = (pl)=>{
+        const before = pl.cmdDmg[opId]||0;
+        const after = Math.max(0, before+delta);
+        pl.cmdDmg[opId] = after;
+        pl.life -= (after - before); // commander damage is combat damage: also hits life
+      };
+      if(state.screen==='synced-game'){
+        if(id!==state.myId) return;
+        applyTo(state.myPlayer);
+        CT.debouncedPush();
+      } else {
+        applyTo(state.players.find(x=>x.id===id));
+      }
+      render();
+    },
+
+    adjustPoison(id,delta){
+      if(state.screen==='synced-game'){
+        if(id!==state.myId) return;
+        state.myPlayer.poison = Math.max(0,(state.myPlayer.poison||0)+delta);
+        CT.debouncedPush();
+      } else {
+        const p = state.players.find(x=>x.id===id);
+        p.poison = Math.max(0,(p.poison||0)+delta);
+      }
+      render();
+    },
+
+    adjustMana(id,key,delta){
+      if(state.screen==='synced-game'){
+        if(id!==state.myId) return;
+        if(!state.myPlayer.mana) state.myPlayer.mana={};
+        state.myPlayer.mana[key] = Math.max(0,(state.myPlayer.mana[key]||0)+delta);
+        CT.debouncedPush();
+      } else {
+        const p = state.players.find(x=>x.id===id);
+        if(!p.mana) p.mana={};
+        p.mana[key] = Math.max(0,(p.mana[key]||0)+delta);
+      }
+      render();
+    },
+
+    clearMana(id){
+      const empty = {w:0,u:0,b:0,r:0,g:0,c:0};
+      if(state.screen==='synced-game'){
+        if(id!==state.myId) return;
+        state.myPlayer.mana = {...empty};
+        CT.debouncedPush();
+      } else {
+        const p = state.players.find(x=>x.id===id);
+        p.mana = {...empty};
+      }
+      render();
+    },
+
+    async setMonarch(id){
+      if(state.screen==='synced-game'){
+        state.meta.monarch = id;
+        render();
+        try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(state.meta)); }catch(e){}
+      } else {
+        state.monarch = id;
+        render();
+      }
+    },
+
+    toggleSound(){ state.soundOn=!state.soundOn; if(state.soundOn) playChime('yourturn'); render(); },
+
+    toggleExpand(id){ state.expanded[id]=!state.expanded[id]; render(); },
+    toggleTrigger(id,tid){
+      if(state.screen==='synced-game'){
+        if(id!==state.myId) return;
+        const t = state.myPlayer.triggers.find(x=>x.id===tid);
+        t.checked=!t.checked;
+        if(t.checked && (t.timing==='start'||t.timing==='end')) playChime(t.timing);
+        CT.pushMyPlayer();
+      } else {
+        const p = state.players.find(x=>x.id===id);
+        const t = p.triggers.find(x=>x.id===tid);
+        t.checked=!t.checked;
+        if(t.checked && (t.timing==='start'||t.timing==='end')) playChime(t.timing);
+      }
+      render();
+    },
+
+    async nextTurn(){
+      if(state.screen==='synced-game'){
+        const meta = state.meta;
+        meta.activeIndex = (meta.activeIndex+1) % meta.playerIds.length;
+        if(meta.activeIndex===0) meta.round++;
+        state.meta = meta;
+        state.lastTurnSignature = meta.activeIndex+':'+meta.round;
+        state.myPlayer.triggers.forEach(t=>t.checked=false);
+        if(meta.playerIds[meta.activeIndex]===state.myId) playChime('yourturn');
+        CT.pushMyPlayer();
+        render();
+        try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(meta)); }catch(e){}
+      } else {
+        state.activeIndex = (state.activeIndex+1) % state.players.length;
+        if(state.activeIndex===0) state.round++;
+        state.players.forEach(p=>p.triggers.forEach(t=>t.checked=false));
+        playChime('yourturn');
+        render();
+      }
+    },
+
+    openSheet(name){ state.sheet=name; state.diceResult=null; state.diceRanking=null; render(); },
+    closeSheet(){ state.sheet=null; render(); },
+
+    rollSingle(sides){
+      state.diceRanking=null; state.diceSpinning=true; render();
+      setTimeout(()=>{ state.diceResult = 1+Math.floor(Math.random()*sides); state.diceSpinning=false; render(); },350);
+    },
+    rollCoin(){
+      state.diceRanking=null; state.diceSpinning=true; render();
+      setTimeout(()=>{ state.diceResult = Math.random()<0.5?'Heads':'Tails'; state.diceSpinning=false; render(); },350);
+    },
+    rollForOrder(){
+      state.diceResult=null;
+      const players = currentPlayers();
+      const ranking = players.map(p=>({name:p.name,color:p.color,roll:1+Math.floor(Math.random()*20)}));
+      ranking.sort((a,b)=>b.roll-a.roll);
+      state.diceRanking = ranking;
+      render();
+    },
+
+    setNewTrigger(val){ state.newTriggerText=val; },
+    setNewTriggerTiming(v){ state.newTriggerTiming=v; render(); },
+    async addTrigger(){
+      const text = state.newTriggerText.trim();
+      if(!text) return;
+      const id='t'+Date.now();
+      const timing = state.newTriggerTiming||'none';
+      if(state.screen==='synced-game'){
+        state.meta.triggerTemplates.push({id,text,timing});
+        state.myPlayer.triggers.push({id,text,timing,checked:false});
+        state.newTriggerText=''; state.newTriggerTiming='none';
+        render();
+        CT.pushMyPlayer();
+        try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(state.meta)); }catch(e){}
+      } else {
+        state.triggerTemplates.push({id,text,timing});
+        state.players.forEach(p=>p.triggers.push({id,text,timing,checked:false}));
+        state.newTriggerText=''; state.newTriggerTiming='none';
+        render();
+      }
+    },
+    async removeTrigger(id){
+      if(state.screen==='synced-game'){
+        state.meta.triggerTemplates = state.meta.triggerTemplates.filter(t=>t.id!==id);
+        state.myPlayer.triggers = state.myPlayer.triggers.filter(t=>t.id!==id);
+        render();
+        CT.pushMyPlayer();
+        try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(state.meta)); }catch(e){}
+      } else {
+        state.triggerTemplates = state.triggerTemplates.filter(t=>t.id!==id);
+        state.players.forEach(p=>{ p.triggers = p.triggers.filter(t=>t.id!==id); });
+        render();
+      }
+    }
+  };
+
+  window.CT = CT;
+  render();
+})();
+</script>
+</body>
+</html>
