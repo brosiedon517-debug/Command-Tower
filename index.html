@@ -168,6 +168,7 @@ input{font-family:inherit;}
 
 /* ---------- BOTTOM BAR ---------- */
 .bottombar{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;padding:12px 16px 18px;background:linear-gradient(0deg,rgba(20,20,28,1) 60%,rgba(20,20,28,0));display:flex;gap:10px;align-items:center;}
+.spectate-badge{flex:1;text-align:center;padding:13px;border-radius:16px;background:var(--surface2);color:var(--ink-dim);font-size:13px;font-weight:800;}
 .next-turn-btn{flex:1;padding:15px;border-radius:16px;font-size:15px;font-weight:800;background:var(--pcactive,#3fc17a);color:#14141c;box-shadow:0 8px 20px rgba(0,0,0,0.4);}
 .next-turn-btn:active{transform:scale(0.98);}
 .fab{width:52px;height:52px;border-radius:50%;background:var(--surface2);font-size:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(0,0,0,0.4);}
@@ -302,6 +303,7 @@ body{margin:0;background:#14141c;}
     roomCode:null,
     myId:null,
     myPlayer:null,
+    isSpectator:false,
     otherPlayers:{},
     meta:null,
     lastTurnSignature:null,
@@ -311,8 +313,7 @@ body{margin:0;background:#14141c;}
     triggerTemplates: DEFAULT_TEMPLATES.map(t=>({...t})),
     expanded:{},
     sheet:null,
-    diceResult:null,
-    diceRanking:null,
+    lastRoll:null, // {kind:'d20'|'d6'|'coin'|'order', result, ranking, by, ts}
     diceSpinning:false,
     newTriggerText:'',
     newTriggerTiming:'none' // none | start | end
@@ -375,6 +376,10 @@ body{margin:0;background:#14141c;}
           <div class="t">Join a synced game ${syncOn?'':'🔒'}</div>
           <div class="d">${syncOn?'Have a room code? Jump into a game in progress':'Requires sync setup — tap to learn how'}</div>
         </button>
+        <button class="home-btn" ${syncOn?`onclick="CT.goConnect('spectate')"`:`onclick="CT.syncUnavailable()"`}>
+          <div class="t">Spectate a game ${syncOn?'':'🔒'}</div>
+          <div class="d">${syncOn?'Watch a game live — no life total of your own':'Requires sync setup — tap to learn how'}</div>
+        </button>
         <button class="home-btn" onclick="CT.goLocalSetup()">
           <div class="t">Pass-and-play</div>
           <div class="d">Everyone shares just this one phone</div>
@@ -384,21 +389,31 @@ body{margin:0;background:#14141c;}
 
   // ================= CONNECT (host / join) =================
   function renderConnect(){
-    const isHost = state.formMode==='host';
+    const mode = state.formMode; // host | join | spectate
+    const isHost = mode==='host';
+    const needsCode = mode==='join' || mode==='spectate';
+    const needsIdentity = mode==='host' || mode==='join';
     let swatches='';
     Object.keys(COLORS).forEach(k=>{
       swatches += `<button class="swatch ${k===state.formColor?'selected':''}" style="background:${COLORS[k]}" onclick="CT.setFormColor('${k}')"></button>`;
     });
+    const titles = {host:'Host a game', join:'Join a game', spectate:'Watch a game'};
+    const subs = {
+      host:'Set the rules, then share the code that appears',
+      join:'Enter the room code your group shared',
+      spectate:'Follow along live — you won\'t have your own life total'
+    };
+    const btnLabel = state.formBusy ? 'Connecting…' : (isHost?'Create room':mode==='join'?'Join room':'Watch room');
     return `
       <div class="setup">
         <button class="back-link" onclick="CT.goHome()">← Back</button>
         <div class="setup-hero">
           <div class="wheel"></div>
-          <h1>${isHost?'Host a game':'Join a game'}</h1>
-          <p>${isHost?'Set the rules, then share the code that appears':'Enter the room code your group shared'}</p>
+          <h1>${titles[mode]}</h1>
+          <p>${subs[mode]}</p>
         </div>
 
-        ${!isHost?`
+        ${needsCode?`
         <div class="card-block">
           <h2>Room code</h2>
           <input class="code-input" maxlength="4" placeholder="ABCD" value="${state.formCode}" oninput="CT.setFormCode(this.value)">
@@ -415,16 +430,17 @@ body{margin:0;background:#14141c;}
           ${state.formLife==='custom' ? `<input type="number" class="custom-life-input" value="${state.formCustomLife}" oninput="CT.setFormCustomLife(this.value)">` : ''}
         </div>`:''}
 
+        ${needsIdentity?`
         <div class="card-block">
           <h2>You</h2>
           <div class="player-setup-row">
             <input maxlength="14" placeholder="Your name" value="${state.formName}" oninput="CT.setFormName(this.value)">
             <div class="swatches">${swatches}</div>
           </div>
-        </div>
+        </div>`:''}
 
         ${state.formError?`<div class="error-text">${state.formError}</div>`:''}
-        <button class="start-btn" style="margin-top:6px" ${state.formBusy?'disabled':''} onclick="CT.submitConnect()">${state.formBusy?'Connecting…':(isHost?'Create room':'Join room')}</button>
+        <button class="start-btn" style="margin-top:6px" ${state.formBusy?'disabled':''} onclick="CT.submitConnect()">${btnLabel}</button>
       </div>`;
   }
 
@@ -493,7 +509,7 @@ body{margin:0;background:#14141c;}
   function currentRound(){ return state.screen==='synced-game' ? state.meta.round : state.round; }
   function currentTemplates(){ return state.screen==='synced-game' ? (state.meta.triggerTemplates||[]) : state.triggerTemplates; }
   function currentMonarch(){ return state.screen==='synced-game' ? (state.meta.monarch||null) : (state.monarch||null); }
-  function isEditable(id){ return state.screen==='synced-game' ? id===state.myId : true; }
+  function isEditable(id){ return state.screen==='synced-game' ? (!state.isSpectator && id===state.myId) : true; }
 
   function renderGameScreen(){
     const players = currentPlayers();
@@ -502,6 +518,7 @@ body{margin:0;background:#14141c;}
     if(!active) return `<div class="players"><p style="padding:40px;text-align:center;color:var(--ink-dim)">Waiting for players to join…</p></div>`;
     const cards = players.map(p=>renderPlayerCard(p, players, p.id===activeId)).join('');
     const synced = state.screen==='synced-game';
+    const spectating = synced && state.isSpectator;
     return `
       <div class="topbar">
         <div class="turn-pill">
@@ -516,10 +533,12 @@ body{margin:0;background:#14141c;}
         </div>
       </div>
       <div class="players">${cards}</div>
-      <div class="bottombar">
+      ${spectating
+        ? `<div class="bottombar"><button class="fab" onclick="CT.openSheet('dice')">🎲</button><div class="spectate-badge">👁️ Spectating — updates live</div></div>`
+        : `<div class="bottombar">
         <button class="fab" onclick="CT.openSheet('dice')">🎲</button>
         <button class="next-turn-btn" style="--pcactive:${COLORS[active.color]}" onclick="CT.nextTurn()">Next Turn →</button>
-      </div>`;
+      </div>`}`;
   }
 
   function renderManaRow(p, editable){
@@ -634,22 +653,39 @@ body{margin:0;background:#14141c;}
   }
 
   function renderDiceSheet(){
-    let body = `
-      <button class="sheet-btn" onclick="CT.rollForOrder()">Decide who goes first</button>
-      <button class="sheet-btn" onclick="CT.rollSingle(20)">Roll d20</button>
-      <button class="sheet-btn" onclick="CT.rollSingle(6)">Roll d6</button>
-      <button class="sheet-btn" onclick="CT.rollCoin()">Flip a coin</button>`;
-    if(state.diceRanking){
-      body += `<div class="rank-list">` + state.diceRanking.map((r,idx)=>`
-        <div class="rank-row ${idx===0?'winner':''}">
-          <div class="rn">${idx+1}</div>
-          <div style="width:9px;height:9px;border-radius:50%;background:${COLORS[r.color]}"></div>
-          <div style="flex:1">${r.name}</div>
-          <div class="num" style="font-size:16px">${r.roll}</div>
-        </div>`).join('') + `</div>`;
-    } else if(state.diceResult!==null){
-      body += `<div class="die-result"><div class="num ${state.diceSpinning?'spin':''}">${state.diceResult}</div><div class="label">Result</div></div>`;
+    const synced = state.screen==='synced-game';
+    const spectating = synced && state.isSpectator;
+    let body='';
+    if(!spectating){
+      body += `
+        <button class="sheet-btn" onclick="CT.rollForOrder()">Decide who goes first</button>
+        <button class="sheet-btn" onclick="CT.rollSingle(20)">Roll d20</button>
+        <button class="sheet-btn" onclick="CT.rollSingle(6)">Roll d6</button>
+        <button class="sheet-btn" onclick="CT.rollCoin()">Flip a coin</button>`;
     }
+
+    const r = state.lastRoll;
+    if(state.diceSpinning){
+      body += `<div class="die-result"><div class="num spin">🎲</div><div class="label">Rolling…</div></div>`;
+    } else if(r && r.kind==='order'){
+      body += `<div class="mini-lbl" style="margin-top:14px;">${r.by?`${r.by} rolled for turn order`:'Turn order roll'}${synced?' <span class="live-dot"></span>':''}</div>
+        <div class="rank-list">` + r.ranking.map((rr,idx)=>`
+          <div class="rank-row ${idx===0?'winner':''}">
+            <div class="rn">${idx+1}</div>
+            <div style="width:9px;height:9px;border-radius:50%;background:${COLORS[rr.color]}"></div>
+            <div style="flex:1">${rr.name}</div>
+            <div class="num" style="font-size:16px">${rr.roll}</div>
+          </div>`).join('') + `</div>`;
+    } else if(r){
+      const kindLabel = r.kind==='coin' ? 'flipped a coin' : `rolled a ${r.kind}`;
+      body += `<div class="die-result">
+        <div class="num">${r.result}</div>
+        <div class="label">${r.by?`${r.by} ${kindLabel}`:'Result'}${synced?' <span class="live-dot"></span>':''}</div>
+      </div>`;
+    } else if(spectating){
+      body += `<div class="mini-lbl" style="margin-top:14px;">No rolls yet — waiting on the table</div>`;
+    }
+
     return `
       <div class="sheet-overlay" onclick="if(event.target===this)CT.closeSheet()">
         <div class="sheet">
@@ -662,13 +698,14 @@ body{margin:0;background:#14141c;}
 
   function renderSettingsSheet(){
     const templates = currentTemplates();
+    const synced = state.screen==='synced-game';
+    const spectating = synced && state.isSpectator;
     const rows = templates.map(t=>`
       <div class="trig-manage-row">
         <span>${t.text}</span>
         ${t.timing==='start'?'<span class="timing-tag start">🔔 Start</span>':t.timing==='end'?'<span class="timing-tag end">🔕 End</span>':''}
-        <button onclick="CT.removeTrigger('${t.id}')">✕</button>
+        ${spectating?'':`<button onclick="CT.removeTrigger('${t.id}')">✕</button>`}
       </div>`).join('');
-    const synced = state.screen==='synced-game';
     return `
       <div class="sheet-overlay" onclick="if(event.target===this)CT.closeSheet()">
         <div class="sheet">
@@ -681,6 +718,10 @@ body{margin:0;background:#14141c;}
             </div>
             <button class="copy-btn" onclick="CT.copyCode()">Copy</button>
           </div>`:''}
+          ${spectating?`
+          <h2>Triggers in play</h2>
+          ${rows}
+          `:`
           <h2>Manage triggers</h2>
           ${rows}
           <div class="add-trig-row">
@@ -692,10 +733,11 @@ body{margin:0;background:#14141c;}
             <button class="timing-opt ${state.newTriggerTiming==='start'?'sel':''}" onclick="CT.setNewTriggerTiming('start')">🔔 Start of turn</button>
             <button class="timing-opt ${state.newTriggerTiming==='end'?'sel':''}" onclick="CT.setNewTriggerTiming('end')">🔕 End of turn</button>
           </div>
+          `}
           <div style="height:18px"></div>
           <h2>Game</h2>
           <button class="sheet-btn" onclick="CT.toggleSound()">Turn sound: ${state.soundOn?'On 🔔':'Off 🔕'}</button>
-          <button class="sheet-btn ${synced?'danger':''}" onclick="${synced?'CT.leaveRoom()':'CT.newGame()'}">${synced?'Leave room':'New game'}</button>
+          <button class="sheet-btn ${synced?'danger':''}" onclick="${synced?'CT.leaveRoom()':'CT.newGame()'}">${spectating?'Stop spectating':synced?'Leave room':'New game'}</button>
         </div>
       </div>`;
   }
@@ -705,7 +747,7 @@ body{margin:0;background:#14141c;}
 
   const CT = {
     // navigation
-    goHome(){ CT.stopPolling(); state.screen='home'; state.sheet=null; render(); },
+    goHome(){ CT.stopPolling(); state.screen='home'; state.sheet=null; state.isSpectator=false; state.myPlayer=null; state.myId=null; state.lastRoll=null; render(); },
     goConnect(mode){ state.screen='connect'; state.formMode=mode; state.formError=''; state.formCode=''; render(); },
     goLocalSetup(){ state.screen='local-setup'; render(); },
     syncUnavailable(){ alert("Cross-phone sync needs a quick one-time setup (free Supabase details pasted into this file). Until then, Pass-and-play works fully on a single phone."); },
@@ -729,10 +771,14 @@ body{margin:0;background:#14141c;}
           const meta = { activeIndex:0, round:1, monarch:null, triggerTemplates: DEFAULT_TEMPLATES.map(t=>({...t})), playerIds:[], lifeStart };
           await store.set(`room:${code}:meta`, JSON.stringify(meta));
           await CT._joinRoom(code, name, color);
-        } else {
+        } else if(state.formMode==='join'){
           const code = state.formCode.trim().toUpperCase();
           if(code.length<4){ state.formError='Enter the 4-character room code.'; state.formBusy=false; render(); return; }
           await CT._joinRoom(code, name, color);
+        } else {
+          const code = state.formCode.trim().toUpperCase();
+          if(code.length<4){ state.formError='Enter the 4-character room code.'; state.formBusy=false; render(); return; }
+          await CT._spectateRoom(code);
         }
       } catch(e){
         state.formError = "Couldn't find that room. Double check the code and try again.";
@@ -754,6 +800,25 @@ body{margin:0;background:#14141c;}
       state.roomCode = code;
       state.myId = id;
       state.myPlayer = player;
+      state.isSpectator = false;
+      state.meta = meta;
+      state.otherPlayers = {};
+      state.lastTurnSignature = meta.activeIndex+':'+meta.round;
+      state.formBusy=false;
+      state.screen='synced-game';
+      render();
+      CT.startPolling();
+    },
+
+    async _spectateRoom(code){
+      const metaRes = await store.get(`room:${code}:meta`);
+      if(!metaRes) throw new Error('not found');
+      const meta = JSON.parse(metaRes.value);
+
+      state.roomCode = code;
+      state.myId = null;
+      state.myPlayer = null;
+      state.isSpectator = true;
       state.meta = meta;
       state.otherPlayers = {};
       state.lastTurnSignature = meta.activeIndex+':'+meta.round;
@@ -791,30 +856,40 @@ body{margin:0;background:#14141c;}
         }
         state.otherPlayers = others;
 
-        // reconcile my triggers against template changes
-        const ids = (meta.triggerTemplates||[]).map(t=>t.id);
-        let changed=false;
-        state.myPlayer.triggers = state.myPlayer.triggers.filter(t=>{
-          const keep = ids.includes(t.id);
-          if(!keep) changed=true;
-          return keep;
-        });
-        (meta.triggerTemplates||[]).forEach(t=>{
-          if(!state.myPlayer.triggers.find(x=>x.id===t.id)){
-            state.myPlayer.triggers.push({id:t.id,text:t.text,timing:t.timing||'none',checked:false});
-            changed=true;
-          }
-        });
+        if(state.myPlayer){
+          // reconcile my triggers against template changes
+          const ids = (meta.triggerTemplates||[]).map(t=>t.id);
+          let changed=false;
+          state.myPlayer.triggers = state.myPlayer.triggers.filter(t=>{
+            const keep = ids.includes(t.id);
+            if(!keep) changed=true;
+            return keep;
+          });
+          (meta.triggerTemplates||[]).forEach(t=>{
+            if(!state.myPlayer.triggers.find(x=>x.id===t.id)){
+              state.myPlayer.triggers.push({id:t.id,text:t.text,timing:t.timing||'none',checked:false});
+              changed=true;
+            }
+          });
 
-        // detect turn change -> reset my triggers
-        const sig = meta.activeIndex+':'+meta.round;
-        if(state.lastTurnSignature!==null && sig!==state.lastTurnSignature){
-          state.myPlayer.triggers.forEach(t=>t.checked=false);
-          changed=true;
-          if((meta.playerIds||[])[meta.activeIndex]===state.myId) playChime('yourturn');
+          // detect turn change -> reset my triggers
+          const sig = meta.activeIndex+':'+meta.round;
+          if(state.lastTurnSignature!==null && sig!==state.lastTurnSignature){
+            state.myPlayer.triggers.forEach(t=>t.checked=false);
+            changed=true;
+            if((meta.playerIds||[])[meta.activeIndex]===state.myId) playChime('yourturn');
+          }
+          state.lastTurnSignature = sig;
+          if(changed) CT.pushMyPlayer();
         }
-        state.lastTurnSignature = sig;
-        if(changed) CT.pushMyPlayer();
+
+        try{
+          const diceRes = await store.get(`room:${state.roomCode}:dice`);
+          if(diceRes){
+            const d = JSON.parse(diceRes.value);
+            if(!state.lastRoll || d.ts !== state.lastRoll.ts) state.lastRoll = d;
+          }
+        }catch(e){ /* no rolls made in this room yet */ }
 
         render();
       }catch(e){ /* room may be temporarily unreachable, skip this tick */ }
@@ -857,6 +932,7 @@ body{margin:0;background:#14141c;}
       state.activeIndex=0;
       state.round=1;
       state.monarch=null;
+      state.lastRoll=null;
       state.screen='local-game';
       render();
     },
@@ -987,24 +1063,50 @@ body{margin:0;background:#14141c;}
       }
     },
 
-    openSheet(name){ state.sheet=name; state.diceResult=null; state.diceRanking=null; render(); },
+    openSheet(name){ state.sheet=name; render(); },
     closeSheet(){ state.sheet=null; render(); },
 
     rollSingle(sides){
-      state.diceRanking=null; state.diceSpinning=true; render();
-      setTimeout(()=>{ state.diceResult = 1+Math.floor(Math.random()*sides); state.diceSpinning=false; render(); },350);
+      if(state.screen==='synced-game' && state.isSpectator) return;
+      const kind = sides===20 ? 'd20' : 'd6';
+      state.diceSpinning=true; render();
+      setTimeout(()=>{
+        const result = 1+Math.floor(Math.random()*sides);
+        const by = state.screen==='synced-game' ? state.myPlayer.name : '';
+        const record = {kind, result, by, ts:Date.now()};
+        state.lastRoll = record;
+        state.diceSpinning=false;
+        render();
+        if(state.screen==='synced-game') CT.pushDiceEvent(record);
+      },350);
     },
     rollCoin(){
-      state.diceRanking=null; state.diceSpinning=true; render();
-      setTimeout(()=>{ state.diceResult = Math.random()<0.5?'Heads':'Tails'; state.diceSpinning=false; render(); },350);
+      if(state.screen==='synced-game' && state.isSpectator) return;
+      state.diceSpinning=true; render();
+      setTimeout(()=>{
+        const result = Math.random()<0.5?'Heads':'Tails';
+        const by = state.screen==='synced-game' ? state.myPlayer.name : '';
+        const record = {kind:'coin', result, by, ts:Date.now()};
+        state.lastRoll = record;
+        state.diceSpinning=false;
+        render();
+        if(state.screen==='synced-game') CT.pushDiceEvent(record);
+      },350);
     },
     rollForOrder(){
-      state.diceResult=null;
+      if(state.screen==='synced-game' && state.isSpectator) return;
       const players = currentPlayers();
       const ranking = players.map(p=>({name:p.name,color:p.color,roll:1+Math.floor(Math.random()*20)}));
       ranking.sort((a,b)=>b.roll-a.roll);
-      state.diceRanking = ranking;
+      const by = state.screen==='synced-game' ? state.myPlayer.name : '';
+      const record = {kind:'order', ranking, by, ts:Date.now()};
+      state.lastRoll = record;
       render();
+      if(state.screen==='synced-game') CT.pushDiceEvent(record);
+    },
+    async pushDiceEvent(record){
+      if(!state.roomCode) return;
+      try{ await store.set(`room:${state.roomCode}:dice`, JSON.stringify(record)); }catch(e){}
     },
 
     setNewTrigger(val){ state.newTriggerText=val; },
