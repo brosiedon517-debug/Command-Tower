@@ -36,6 +36,8 @@
   position:relative;
 }
 .ctshell h1,.ctshell h2,.ctshell .num{font-family:var(--font-display);}
+#ct-sheet{font-family:var(--font-body);color:var(--ink);}
+#ct-sheet h2,#ct-sheet .num{font-family:var(--font-display);}
 button{font-family:inherit;border:none;cursor:pointer;color:inherit;background:none;}
 input{font-family:inherit;}
 
@@ -122,8 +124,8 @@ input{font-family:inherit;}
 .life-btn{width:52px;height:52px;border-radius:50%;background:var(--surface2);font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--pc);}
 .life-btn:active{transform:scale(0.88);}
 .life-num{font-size:56px;font-weight:700;text-align:center;flex:1;line-height:1;}
-.life-sub{display:flex;justify-content:center;gap:10px;margin-top:6px;}
-.life-sub button{font-size:12px;font-weight:800;color:var(--ink-dim);padding:4px 10px;border-radius:8px;background:var(--surface2);}
+.life-sub{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:6px;}
+.life-sub button{font-size:13px;font-weight:800;color:var(--ink-dim);padding:9px 15px;min-height:40px;border-radius:10px;background:var(--surface2);}
 .life-sub button:active{transform:scale(0.92);}
 
 .cmd-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
@@ -679,7 +681,7 @@ body{margin:0;background:#14141c;}
           <div class="life-num">${p.life}</div>
           ${editable?`<button class="life-btn" ${holdAttrs(p.id,1)}>+</button>`:'<div style="width:52px"></div>'}
         </div>
-        ${editable?`<div class="life-sub"><button onclick="CT.adjustLife('${p.id}',-5)">−5</button><button onclick="CT.adjustLife('${p.id}',5)">+5</button></div>`:''}
+        ${editable?`<div class="life-sub"><button onclick="CT.adjustLife('${p.id}',-10)">−10</button><button onclick="CT.adjustLife('${p.id}',-5)">−5</button><button onclick="CT.adjustLife('${p.id}',5)">+5</button><button onclick="CT.adjustLife('${p.id}',10)">+10</button></div>`:''}
         <div class="cmd-row">${chips}</div>
         <div class="stat-row">
           <div class="poison-chip ${poison>=10?'lethal':(poison>0?'warn':'')}">
