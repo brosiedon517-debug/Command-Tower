@@ -219,6 +219,7 @@ body{margin:0;background:#14141c;}
 <body>
 
 <div id="ct-app" class="ctshell"></div>
+<div id="ct-sheet"></div>
 
 <script>
 (function(){
@@ -311,6 +312,7 @@ body{margin:0;background:#14141c;}
     meta:null,
     lastTurnSignature:null,
     lastStarted:false,
+    lastResetAt:null,
     pollTimer:null,
     // shared
     soundOn:true,
@@ -360,7 +362,32 @@ body{margin:0;background:#14141c;}
     else if(state.screen==='synced-game' && state.meta && !state.meta.started) html=renderLobby();
     else html=renderGameScreen();
     app.innerHTML = html;
-    if(state.sheet){ app.appendChild(el(renderSheet())); }
+    renderSheetContainer();
+  }
+
+  // The sheet lives in its own persistent container so that background
+  // re-renders (e.g. the synced-game poll loop) don't tear down and
+  // recreate the overlay every tick -- that used to replay the slide-up
+  // entrance animation on a timer, making the sheet look like it was
+  // flashing on and off while open. We only rebuild the outer overlay
+  // node when the sheet actually opens/closes/switches kind; otherwise
+  // we just refresh its inner content in place.
+  let openSheetKind = null;
+  function renderSheetContainer(){
+    const container = document.getElementById('ct-sheet');
+    if(!state.sheet){
+      if(openSheetKind!==null){ container.innerHTML=''; openSheetKind=null; }
+      return;
+    }
+    if(state.sheet!==openSheetKind){
+      container.innerHTML='';
+      container.appendChild(el(renderSheet()));
+      openSheetKind = state.sheet;
+    } else {
+      const inner = container.querySelector('.sheet');
+      const fresh = el(renderSheet()).querySelector('.sheet');
+      if(inner && fresh) inner.innerHTML = fresh.innerHTML;
+    }
   }
 
   // ================= HOME =================
@@ -770,6 +797,7 @@ body{margin:0;background:#14141c;}
           <div style="height:18px"></div>
           <h2>Game</h2>
           <button class="sheet-btn" onclick="CT.toggleSound()">Turn sound: ${state.soundOn?'On 🔔':'Off 🔕'}</button>
+          ${(!spectating && (!synced || (state.meta&&state.meta.started))) ? `<button class="sheet-btn" onclick="CT.restartGame()">Restart game</button>` : ''}
           <button class="sheet-btn ${synced?'danger':''}" onclick="${synced?'CT.leaveRoom()':'CT.newGame()'}">${spectating?'Stop spectating':synced?'Leave room':'New game'}</button>
         </div>
       </div>`;
@@ -838,6 +866,7 @@ body{margin:0;background:#14141c;}
       state.otherPlayers = {};
       state.lastTurnSignature = meta.activeIndex+':'+meta.round;
       state.lastStarted = !!meta.started;
+      state.lastResetAt = meta.resetAt || null;
       state.formBusy=false;
       state.screen='synced-game';
       render();
@@ -857,6 +886,7 @@ body{margin:0;background:#14141c;}
       state.otherPlayers = {};
       state.lastTurnSignature = meta.activeIndex+':'+meta.round;
       state.lastStarted = !!meta.started;
+      state.lastResetAt = meta.resetAt || null;
       state.formBusy=false;
       state.screen='synced-game';
       render();
@@ -890,6 +920,20 @@ body{margin:0;background:#14141c;}
           }catch(e){ /* not written yet */ }
         }
         state.otherPlayers = others;
+
+        // another player hit "Restart game" -> reset my own life/poison/mana/etc
+        if(meta.resetAt && meta.resetAt !== state.lastResetAt){
+          if(state.myPlayer){
+            state.myPlayer.life = meta.lifeStart;
+            state.myPlayer.poison = 0;
+            state.myPlayer.mana = {w:0,u:0,b:0,r:0,g:0,c:0};
+            state.myPlayer.cmdDmg = {};
+            (meta.playerIds||[]).forEach(id=>{ if(id!==state.myId) state.myPlayer.cmdDmg[id]=0; });
+            state.myPlayer.triggers = (meta.triggerTemplates||[]).map(t=>({id:t.id,text:t.text,timing:t.timing||'none',checked:false}));
+            CT.pushMyPlayer();
+          }
+          state.lastResetAt = meta.resetAt;
+        }
 
         if(state.myPlayer){
           // reconcile my triggers against template changes
@@ -975,6 +1019,40 @@ body{margin:0;background:#14141c;}
       render();
     },
     newGame(){ state.screen='local-setup'; state.sheet=null; state.players=[]; render(); },
+
+    restartGame(){
+      state.sheet=null;
+      if(state.screen==='local-game'){
+        CT.startLocalGame();
+        return;
+      }
+      if(state.screen==='synced-game'){
+        if(state.isSpectator || !state.meta) return;
+        const meta = state.meta;
+        const ids = meta.playerIds||[];
+        meta.started = true;
+        meta.round = 1;
+        meta.monarch = null;
+        meta.activeIndex = ids.length ? Math.floor(Math.random()*ids.length) : 0;
+        meta.resetAt = Date.now();
+        state.meta = meta;
+        state.lastResetAt = meta.resetAt;
+        state.lastTurnSignature = meta.activeIndex+':'+meta.round;
+        state.lastStarted = true;
+        state.lastRoll = null;
+        if(state.myPlayer){
+          state.myPlayer.life = meta.lifeStart;
+          state.myPlayer.poison = 0;
+          state.myPlayer.mana = {w:0,u:0,b:0,r:0,g:0,c:0};
+          state.myPlayer.cmdDmg = {};
+          ids.forEach(id=>{ if(id!==state.myId) state.myPlayer.cmdDmg[id]=0; });
+          state.myPlayer.triggers = (meta.triggerTemplates||[]).map(t=>({id:t.id,text:t.text,timing:t.timing||'none',checked:false}));
+          CT.pushMyPlayer();
+        }
+        render();
+        (async()=>{ try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(meta)); }catch(e){} })();
+      }
+    },
 
     // shared game actions (branch on screen)
     adjustLife(id,delta){
