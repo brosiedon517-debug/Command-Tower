@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Command Tower</title>
+<meta name="description" content="Life totals, turns, commander damage, poison, floating mana, and the monarch — synced across the table for Commander/EDH.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Command Tower">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d0a16">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="./icons/favicon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Rajdhani:wght@500;600;700&family=Orbitron:wght@500;600;700;800&display=swap');
+
+:root{
+  --bg:#0d0a16;
+  --surface:#1a1526;
+  --surface2:#241d33;
+  --ink:#ece7fb;
+  --ink-dim:#948aad;
+  --w:#ffdf82; --u:#2fb8ff; --b:#c452e8; --r:#ff5a3c; --g:#34e08a; --c:#9fb4c9;
+  --danger:#ff4d6a;
+  --radius:20px;
+  --font-display:'Cinzel',serif;
+  --font-body:'Rajdhani',sans-serif;
+  --font-mono:'Orbitron',sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+.ctshell{
+  font-family:var(--font-body);
+  font-weight:600;
+  background:
+    radial-gradient(ellipse 900px 500px at 50% -8%, rgba(196,82,232,0.14), transparent 60%),
+    var(--bg);
+  background-repeat:no-repeat;
+  color:var(--ink);
+  min-height:100vh;
+  max-width:480px;
+  margin:0 auto;
+  padding-bottom:110px;
+  position:relative;
+}
+.ctshell::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  opacity:0.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' stroke='%233ad6ff' stroke-width='1'%3E%3Cpath d='M70 70 L70 10 M70 70 L120 40 M70 70 L120 100 M70 70 L20 100 M70 70 L20 40'/%3E%3Ccircle cx='70' cy='10' r='3'/%3E%3Ccircle cx='120' cy='40' r='3'/%3E%3Ccircle cx='120' cy='100' r='3'/%3E%3Ccircle cx='20' cy='100' r='3'/%3E%3Ccircle cx='20' cy='40' r='3'/%3E%3C/g%3E%3C/svg%3E");
+}
+.ctshell > *{position:relative;z-index:1;}
+.ctshell h1,.ctshell h2,.ctshell .num{font-family:var(--font-display);letter-spacing:.02em;}
+button{font-family:inherit;border:none;cursor:pointer;color:inherit;background:none;}
+input{font-family:inherit;}
+
+/* ---------- HOME ---------- */
+.home{padding:60px 24px 40px;display:flex;flex-direction:column;min-height:100vh;}
+.home-hero{text-align:center;margin-bottom:40px;}
+.home-hero .wheel{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:conic-gradient(var(--w),var(--u),var(--b),var(--r),var(--g),var(--w));box-shadow:0 0 32px rgba(196,82,232,0.45),0 0 10px rgba(255,255,255,0.25);position:relative;animation:runeSpin 14s linear infinite;}
+.home-hero .wheel::after{content:'';position:absolute;inset:8px;border-radius:50%;background:var(--bg);box-shadow:inset 0 0 10px rgba(0,0,0,0.6);}
+@keyframes runeSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.home-hero h1{font-size:28px;margin:0 0 6px;}
+.home-hero p{color:var(--ink-dim);font-size:14px;margin:0;}
+.home-btn{width:100%;padding:18px;border-radius:18px;margin-bottom:14px;background:var(--surface);text-align:left;}
+.home-btn:active{transform:scale(0.98);}
+.home-btn .t{font-weight:800;font-size:16px;margin-bottom:2px;}
+.home-btn .d{color:var(--ink-dim);font-size:12.5px;}
+.home-btn.primary{background:conic-gradient(var(--w),var(--u),var(--b),var(--r),var(--g),var(--w));color:#0d0a16;}
+.home-btn.primary .d{color:rgba(20,20,28,0.7);}
+
+/* ---------- SETUP / CONNECT ---------- */
+.setup{padding:28px 20px 40px;}
+.setup-hero{text-align:center;margin-bottom:26px;}
+.setup-hero .wheel{width:56px;height:56px;margin:0 auto 10px;border-radius:50%;background:conic-gradient(var(--w),var(--u),var(--b),var(--r),var(--g),var(--w));box-shadow:0 0 26px rgba(196,82,232,0.4),0 0 8px rgba(255,255,255,0.2);position:relative;animation:runeSpin 14s linear infinite;}
+.setup-hero .wheel::after{content:'';position:absolute;inset:7px;border-radius:50%;background:var(--bg);box-shadow:inset 0 0 8px rgba(0,0,0,0.6);}
+.setup-hero h1{font-size:24px;margin:0 0 4px;}
+.setup-hero p{color:var(--ink-dim);font-size:14px;margin:0;}
+.back-link{color:var(--ink-dim);font-weight:700;font-size:13px;margin-bottom:14px;display:inline-block;}
+
+.card-block{background:var(--surface);border-radius:var(--radius);padding:18px;margin-bottom:16px;}
+.card-block h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-dim);margin:0 0 12px;font-weight:700;}
+
+.stepper{display:flex;align-items:center;justify-content:center;gap:22px;}
+.stepper button{width:44px;height:44px;border-radius:50%;background:var(--surface2);font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.stepper button:active{transform:scale(0.9);}
+.stepper .count{font-size:32px;font-weight:700;min-width:40px;text-align:center;}
+
+.life-opts{display:flex;gap:8px;flex-wrap:wrap;}
+.chip-opt{flex:1;padding:10px 0;text-align:center;border-radius:12px;background:var(--surface2);font-weight:800;font-size:14px;color:var(--ink-dim);}
+.chip-opt.sel{background:var(--ink);color:var(--bg);}
+.custom-life-input{width:100%;margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--surface2);color:var(--ink);font-weight:700;font-size:16px;text-align:center;}
+
+.player-setup-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.player-setup-row:last-child{margin-bottom:0;}
+.player-setup-row input{flex:1;min-width:0;background:var(--surface2);border-radius:10px;padding:10px 12px;color:var(--ink);font-weight:700;font-size:15px;}
+.swatches{display:flex;gap:6px;}
+.swatch{width:26px;height:26px;border-radius:50%;border:2px solid transparent;flex-shrink:0;}
+.swatch.selected{border-color:var(--ink);transform:scale(1.15);}
+
+.code-input{width:100%;padding:16px;border-radius:14px;background:var(--surface2);color:var(--ink);font-weight:800;font-size:28px;text-align:center;letter-spacing:.25em;font-family:var(--font-mono);text-transform:uppercase;}
+.error-text{color:var(--danger);font-size:13px;font-weight:700;margin-top:10px;text-align:center;}
+
+.start-btn{width:100%;padding:16px;border-radius:16px;font-size:17px;font-weight:700;background:conic-gradient(var(--w),var(--u),var(--b),var(--r),var(--g),var(--w));color:#0d0a16;text-shadow:0 1px 0 rgba(255,255,255,0.3);box-shadow:0 8px 24px rgba(0,0,0,0.35);}
+.start-btn:active{transform:scale(0.98);}
+.start-btn:disabled{opacity:0.5;}
+
+.room-share{background:var(--surface);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:16px;}
+.room-share .lbl{color:var(--ink-dim);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;}
+.room-share .code{font-family:var(--font-mono);font-size:38px;font-weight:700;letter-spacing:.15em;margin:8px 0;}
+.copy-btn{background:var(--surface2);padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;}
+.copy-btn:active{transform:scale(0.95);}
+
+/* ---------- GAME ---------- */
+.topbar{position:sticky;top:0;z-index:5;background:rgba(20,20,28,0.92);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:space-between;padding:14px 16px;}
+.turn-pill{display:flex;align-items:center;gap:8px;}
+.turn-dot{width:12px;height:12px;border-radius:50%;box-shadow:0 0 10px currentColor;}
+.turn-text{font-weight:800;font-size:14px;}
+.turn-text .round{color:var(--ink-dim);font-weight:700;font-size:12px;display:flex;align-items:center;gap:6px;}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--g);animation:blink 1.6s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.25;}}
+.icon-btn{width:38px;height:38px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:17px;}
+.icon-btn:active{transform:scale(0.9);}
+.topbar-icons{display:flex;gap:8px;}
+
+.players{padding:14px 16px 0;}
+.player-card{position:relative;border-radius:var(--radius);padding:16px;margin-bottom:14px;background:var(--surface);border:3px solid var(--pc,#888);overflow:hidden;transition:box-shadow .3s;}
+.player-card::before,.player-card::after{content:'';position:absolute;width:12px;height:12px;pointer-events:none;opacity:0.85;}
+.player-card::before{top:3px;left:3px;border-top:2px solid var(--pc);border-left:2px solid var(--pc);}
+.player-card::after{bottom:3px;right:3px;border-bottom:2px solid var(--pc);border-right:2px solid var(--pc);}
+.player-card.active{
+  animation:glow 2.6s cubic-bezier(0.45,0,0.55,1) infinite, foilSweep 4.5s ease-in-out infinite;
+  background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.14) 48%, transparent 66%), var(--surface);
+  background-size:220% 220%, 100% 100%;
+}
+@keyframes glow{0%,100%{box-shadow:0 0 6px var(--pc);}50%{box-shadow:0 0 26px var(--pc);}}
+@keyframes foilSweep{0%{background-position:130% 130%, 0 0;}100%{background-position:-30% -30%, 0 0;}}
+.player-card.defeated{opacity:0.45;filter:grayscale(0.8);}
+.player-card.readonly{opacity:0.92;}
+.ribbon{position:absolute;top:10px;right:-30px;background:var(--pc);color:#0d0a16;font-size:10px;font-weight:800;padding:3px 34px;transform:rotate(35deg);letter-spacing:.05em;}
+.pc-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.pc-dot{width:14px;height:14px;border-radius:50%;background:var(--pc);flex-shrink:0;}
+.pc-name{font-weight:800;font-size:15px;}
+.pc-you{font-size:10px;font-weight:800;color:var(--ink-dim);background:var(--surface2);padding:2px 8px;border-radius:8px;}
+.defeated-tag{font-size:11px;font-weight:800;color:var(--danger);}
+.pc-toggle{margin-left:auto;background:var(--surface2);width:24px;height:24px;border-radius:50%;font-size:12px;color:var(--ink-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pc-toggle:active{transform:scale(0.9);}
+
+.player-card-compact{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:14px;padding:11px 14px;margin-bottom:10px;border-left:4px solid var(--pc,#888);}
+.player-card-compact:active{transform:scale(0.99);}
+.player-card-compact.defeated{opacity:0.45;filter:grayscale(0.8);}
+.pcc-dot{width:11px;height:11px;border-radius:50%;background:var(--pc);flex-shrink:0;}
+.pcc-name{font-weight:800;font-size:14px;flex:1;display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pcc-life{font-family:var(--font-display);font-weight:700;font-size:22px;flex-shrink:0;}
+.pcc-badge{font-size:10px;font-weight:800;color:var(--ink-dim);background:var(--surface2);padding:3px 7px;border-radius:8px;flex-shrink:0;}
+.pcc-badge.lethal{color:#fff;background:var(--danger);}
+.pcc-chevron{color:var(--ink-dim);font-size:13px;flex-shrink:0;}
+
+.life-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.life-btn{width:52px;height:52px;border-radius:50%;background:var(--surface2);font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--pc);}
+.life-btn:active{transform:scale(0.88);}
+.life-num{font-size:56px;font-weight:700;text-align:center;flex:1;line-height:1;}
+.life-sub{display:flex;justify-content:center;gap:10px;margin-top:6px;}
+.life-sub button{font-size:12px;font-weight:800;color:var(--ink-dim);padding:4px 10px;border-radius:8px;background:var(--surface2);}
+.life-sub button:active{transform:scale(0.92);}
+
+.cmd-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+.cmd-chip{display:flex;align-items:center;gap:6px;background:var(--surface2);border-radius:12px;padding:6px 8px;font-size:12px;font-weight:700;}
+.cmd-chip.lethal{background:var(--danger);color:#fff;animation:pulseLethal 1.6s cubic-bezier(0.45,0,0.55,1) infinite;}
+@keyframes pulseLethal{0%,100%{opacity:1;box-shadow:0 0 0px rgba(255,71,71,0);}50%{opacity:0.82;box-shadow:0 0 10px rgba(255,71,71,0.65);}}
+.cmd-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.cmd-num{min-width:16px;text-align:center;font-family:var(--font-mono);}
+.cmd-chip button{width:18px;height:18px;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+
+.stat-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;}
+.poison-chip{display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:12px;padding:6px 10px;font-size:12px;font-weight:800;}
+.poison-chip.warn{background:rgba(63,193,122,0.18);color:var(--g);}
+.poison-chip.lethal{background:var(--danger);color:#fff;animation:pulseLethal 1.6s cubic-bezier(0.45,0,0.55,1) infinite;}
+.poison-chip button{width:20px;height:20px;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+.mini-lbl{font-size:11px;font-weight:800;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:12px;}
+.mana-row{display:flex;gap:6px;margin-top:6px;}
+.mana-cell{flex:1;background:var(--surface2);border-radius:10px;overflow:hidden;}
+.mana-cell .mc-add{display:block;width:100%;padding:7px 2px 4px;text-align:center;}
+.mana-cell .mc-add:active{transform:scale(0.94);}
+.mana-cell .sym{width:15px;height:15px;border-radius:50%;margin:0 auto 3px;}
+.mana-cell .cnt{font-family:var(--font-mono);font-weight:700;font-size:14px;}
+.mana-cell .mc-sub{display:block;width:100%;font-size:12px;font-weight:800;color:var(--ink-dim);padding:3px 0 5px;border-top:1px solid rgba(255,255,255,0.05);}
+.mana-clear{font-size:11px;font-weight:800;color:var(--ink-dim);margin-top:8px;width:100%;text-align:center;background:var(--surface2);border-radius:8px;padding:6px 0;}
+.mana-row-view{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.mana-chip{display:flex;align-items:center;gap:5px;background:var(--surface2);border-radius:10px;padding:5px 9px;font-size:12px;font-weight:800;font-family:var(--font-mono);}
+.mana-chip .sym{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.mana-none{color:var(--ink-dim);font-size:12px;font-weight:700;margin-top:6px;display:inline-block;}
+
+.monarch-chip{display:flex;align-items:center;gap:6px;border-radius:12px;padding:6px 12px;font-size:12px;font-weight:800;background:var(--surface2);color:var(--ink-dim);}
+.monarch-chip.held{background:linear-gradient(90deg,#ffdf82,#e0b94a);color:#0d0a16;box-shadow:0 0 14px rgba(255,223,130,0.45);}
+.monarch-chip button{font-weight:800;font-size:12px;}
+.crown-badge{position:absolute;top:10px;left:12px;font-size:18px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));animation:crownFloat 2.4s ease-in-out infinite;}
+@keyframes crownFloat{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-3px) rotate(4deg);}}
+
+.trig-toggle{margin-top:14px;width:100%;text-align:left;font-size:13px;font-weight:800;color:var(--ink-dim);display:flex;align-items:center;justify-content:space-between;padding:8px 0 0;border-top:1px solid rgba(255,255,255,0.06);}
+.trig-panel{margin-top:8px;display:flex;flex-direction:column;gap:8px;}
+.trig-item{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;}
+.trig-box{width:20px;height:20px;border-radius:6px;background:var(--surface2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;}
+.trig-box.checked{background:var(--pc);color:#0d0a16;}
+.trig-item.checked span{text-decoration:line-through;color:var(--ink-dim);}
+
+/* ---------- BOTTOM BAR ---------- */
+.bottombar{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;padding:12px 16px 18px;background:linear-gradient(0deg,rgba(20,20,28,1) 60%,rgba(20,20,28,0));display:flex;gap:10px;align-items:center;}
+.spectate-badge{flex:1;text-align:center;padding:13px;border-radius:16px;background:var(--surface2);color:var(--ink-dim);font-size:13px;font-weight:800;}
+.next-turn-btn{flex:1;padding:15px;border-radius:16px;font-size:15px;font-weight:800;background:var(--pcactive,#34e08a);color:#0d0a16;box-shadow:0 8px 20px rgba(0,0,0,0.4);}
+.next-turn-btn:active{transform:scale(0.98);}
+.fab{width:52px;height:52px;border-radius:50%;background:var(--surface2);font-size:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(0,0,0,0.4);}
+.fab:active{transform:scale(0.9);}
+
+/* ---------- SHEET ---------- */
+.sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10;display:flex;align-items:flex-end;justify-content:center;}
+.sheet{width:100%;max-width:480px;background:var(--surface);border-radius:24px 24px 0 0;padding:22px 20px 30px;animation:slideUp .25s ease-out;max-height:85vh;overflow-y:auto;position:relative;}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.sheet h2{font-size:18px;margin:0 0 16px;}
+.sheet-close{position:absolute;top:16px;right:16px;}
+.sheet-btn{width:100%;padding:14px;border-radius:14px;background:var(--surface2);font-weight:800;font-size:14px;margin-bottom:10px;text-align:center;}
+.sheet-btn:active{transform:scale(0.98);}
+.sheet-btn.danger{background:rgba(255,71,71,0.15);color:var(--danger);}
+.die-result{text-align:center;padding:18px 0;}
+.die-result .num{font-size:52px;font-weight:700;}
+.die-result .label{color:var(--ink-dim);font-size:13px;font-weight:700;margin-top:4px;}
+.rank-list{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+.rank-row{display:flex;align-items:center;gap:10px;background:var(--surface2);padding:8px 12px;border-radius:12px;font-weight:700;font-size:13px;}
+.rank-row .rn{font-family:var(--font-mono);color:var(--ink-dim);width:18px;}
+.rank-row.winner{outline:2px solid var(--w);}
+
+.trig-manage-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.trig-manage-row span{flex:1;font-size:14px;font-weight:700;}
+.trig-manage-row button{width:26px;height:26px;border-radius:50%;background:var(--surface2);font-size:14px;}
+.add-trig-row{display:flex;gap:8px;margin-top:6px;}
+.add-trig-row input{flex:1;background:var(--surface2);border-radius:10px;padding:10px 12px;color:var(--ink);}
+.add-trig-row button{background:var(--g);color:#0d0a16;padding:0 16px;border-radius:10px;font-weight:800;}
+.timing-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.timing-opt{flex:1;min-width:88px;padding:8px 4px;border-radius:10px;background:var(--surface2);color:var(--ink-dim);font-size:11px;font-weight:800;text-align:center;}
+.timing-opt.sel{background:var(--ink);color:var(--bg);}
+.timing-tag{font-size:10px;font-weight:800;padding:3px 8px;border-radius:8px;background:var(--surface2);color:var(--ink-dim);white-space:nowrap;}
+.timing-tag.start{color:var(--g);}
+.timing-tag.end{color:var(--u);}
+
+.room-code-chip{display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:14px;padding:14px 16px;margin-bottom:16px;}
+.qr-wrap{display:flex;justify-content:center;margin:6px 0 16px;}
+.qr-img{width:220px;height:220px;border-radius:14px;background:#fff;padding:12px;box-sizing:border-box;}
+.qr-code-text{font-family:var(--font-mono);font-size:26px;font-weight:700;letter-spacing:.18em;margin-bottom:16px;}
+.lobby-row{display:flex;align-items:center;gap:10px;padding:8px 0;font-weight:700;font-size:14px;}
+.lobby-empty{color:var(--ink-dim);font-size:13px;font-weight:600;text-align:center;padding:6px 0;}
+.lobby-hint{color:var(--ink-dim);font-size:12px;font-weight:700;text-align:center;margin-top:10px;}
+.room-code-chip .code{font-family:var(--font-mono);font-size:22px;font-weight:700;letter-spacing:.15em;}
+
+.spin{animation:spin .5s ease-out;}
+@keyframes spin{from{transform:rotate(0deg) scale(1.3);}to{transform:rotate(360deg) scale(1);}}
+
+body{margin:0;background:#0d0a16;}
+</style>
+</head>
+<body>
+
+<div id="ct-app" class="ctshell"></div>
+
+<!-- QR code generator (qrcode-generator by Kazuhiko Arase, MIT license) -->
+<script>
+var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],f={},c=function(t,r){o=function(t){for(var r=new Array(t),e=0;e<t;e+=1){r[e]=new Array(t);for(var n=0;n<t;n+=1)r[e][n]=null}return r}(i=4*e+17),l(0,0),l(i-7,0),l(0,i-7),s(),h(),d(t,r),e>=7&&v(t),null==a&&(a=p(e,n,u)),w(a,r)},l=function(t,r){for(var e=-1;e<=7;e+=1)if(!(t+e<=-1||i<=t+e))for(var n=-1;n<=7;n+=1)r+n<=-1||i<=r+n||(o[t+e][r+n]=0<=e&&e<=6&&(0==n||6==n)||0<=n&&n<=6&&(0==e||6==e)||2<=e&&e<=4&&2<=n&&n<=4)},h=function(){for(var t=8;t<i-8;t+=1)null==o[t][6]&&(o[t][6]=t%2==0);for(var r=8;r<i-8;r+=1)null==o[6][r]&&(o[6][r]=r%2==0)},s=function(){for(var t=B.getPatternPosition(e),r=0;r<t.length;r+=1)for(var n=0;n<t.length;n+=1){var i=t[r],a=t[n];if(null==o[i][a])for(var u=-2;u<=2;u+=1)for(var f=-2;f<=2;f+=1)o[i+u][a+f]=-2==u||2==u||-2==f||2==f||0==u&&0==f}},v=function(t){for(var r=B.getBCHTypeNumber(e),n=0;n<18;n+=1){var a=!t&&1==(r>>n&1);o[Math.floor(n/3)][n%3+i-8-3]=a}for(n=0;n<18;n+=1){a=!t&&1==(r>>n&1);o[n%3+i-8-3][Math.floor(n/3)]=a}},d=function(t,r){for(var e=n<<3|r,a=B.getBCHTypeInfo(e),u=0;u<15;u+=1){var f=!t&&1==(a>>u&1);u<6?o[u][8]=f:u<8?o[u+1][8]=f:o[i-15+u][8]=f}for(u=0;u<15;u+=1){f=!t&&1==(a>>u&1);u<8?o[8][i-u-1]=f:u<9?o[8][15-u-1+1]=f:o[8][15-u-1]=f}o[i-8][8]=!t},w=function(t,r){for(var e=-1,n=i-1,a=7,u=0,f=B.getMaskFunction(r),c=i-1;c>0;c-=2)for(6==c&&(c-=1);;){for(var g=0;g<2;g+=1)if(null==o[n][c-g]){var l=!1;u<t.length&&(l=1==(t[u]>>>a&1)),f(n,c-g)&&(l=!l),o[n][c-g]=l,-1==(a-=1)&&(u+=1,a=7)}if((n+=e)<0||i<=n){n-=e,e=-e;break}}},p=function(t,r,e){for(var n=A.getRSBlocks(t,r),o=b(),i=0;i<e.length;i+=1){var a=e[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var u=0;for(i=0;i<n.length;i+=1)u+=n[i].dataCount;if(o.getLengthInBits()>8*u)throw"code length overflow. ("+o.getLengthInBits()+">"+8*u+")";for(o.getLengthInBits()+4<=8*u&&o.put(0,4);o.getLengthInBits()%8!=0;)o.putBit(!1);for(;!(o.getLengthInBits()>=8*u||(o.put(236,8),o.getLengthInBits()>=8*u));)o.put(17,8);return function(t,r){for(var e=0,n=0,o=0,i=new Array(r.length),a=new Array(r.length),u=0;u<r.length;u+=1){var f=r[u].dataCount,c=r[u].totalCount-f;n=Math.max(n,f),o=Math.max(o,c),i[u]=new Array(f);for(var g=0;g<i[u].length;g+=1)i[u][g]=255&t.getBuffer()[g+e];e+=f;var l=B.getErrorCorrectPolynomial(c),h=k(i[u],l.getLength()-1).mod(l);for(a[u]=new Array(l.getLength()-1),g=0;g<a[u].length;g+=1){var s=g+h.getLength()-a[u].length;a[u][g]=s>=0?h.getAt(s):0}}var v=0;for(g=0;g<r.length;g+=1)v+=r[g].totalCount;var d=new Array(v),w=0;for(g=0;g<n;g+=1)for(u=0;u<r.length;u+=1)g<i[u].length&&(d[w]=i[u][g],w+=1);for(g=0;g<o;g+=1)for(u=0;u<r.length;u+=1)g<a[u].length&&(d[w]=a[u][g],w+=1);return d}(o,n)};f.addData=function(t,r){var e=null;switch(r=r||"Byte"){case"Numeric":e=M(t);break;case"Alphanumeric":e=x(t);break;case"Byte":e=m(t);break;case"Kanji":e=L(t);break;default:throw"mode:"+r}u.push(e),a=null},f.isDark=function(t,r){if(t<0||i<=t||r<0||i<=r)throw t+","+r;return o[t][r]},f.getModuleCount=function(){return i},f.make=function(){if(e<1){for(var t=1;t<40;t++){for(var r=A.getRSBlocks(t,n),o=b(),i=0;i<u.length;i++){var a=u[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var g=0;for(i=0;i<r.length;i++)g+=r[i].dataCount;if(o.getLengthInBits()<=8*g)break}e=t}c(!1,function(){for(var t=0,r=0,e=0;e<8;e+=1){c(!0,e);var n=B.getLostPoint(f);(0==e||t>n)&&(t=n,r=e)}return r}())},f.createTableTag=function(t,r){t=t||2;var e="";e+='<table style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: "+(r=void 0===r?4*t:r)+"px;",e+='">',e+="<tbody>";for(var n=0;n<f.getModuleCount();n+=1){e+="<tr>";for(var o=0;o<f.getModuleCount();o+=1)e+='<td style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: 0px;",e+=" width: "+t+"px;",e+=" height: "+t+"px;",e+=" background-color: ",e+=f.isDark(n,o)?"#000000":"#ffffff",e+=";",e+='"/>';e+="</tr>"}return e+="</tbody>",e+="</table>"},f.createSvgTag=function(t,r,e,n){var o={};"object"==typeof arguments[0]&&(t=(o=arguments[0]).cellSize,r=o.margin,e=o.alt,n=o.title),t=t||2,r=void 0===r?4*t:r,(e="string"==typeof e?{text:e}:e||{}).text=e.text||null,e.id=e.text?e.id||"qrcode-description":null,(n="string"==typeof n?{text:n}:n||{}).text=n.text||null,n.id=n.text?n.id||"qrcode-title":null;var i,a,u,c,g=f.getModuleCount()*t+2*r,l="";for(c="l"+t+",0 0,"+t+" -"+t+",0 0,-"+t+"z ",l+='<svg version="1.1" xmlns="http://www.w3.org/2000/svg"',l+=o.scalable?"":' width="'+g+'px" height="'+g+'px"',l+=' viewBox="0 0 '+g+" "+g+'" ',l+=' preserveAspectRatio="xMinYMin meet"',l+=n.text||e.text?' role="img" aria-labelledby="'+y([n.id,e.id].join(" ").trim())+'"':"",l+=">",l+=n.text?'<title id="'+y(n.id)+'">'+y(n.text)+"</title>":"",l+=e.text?'<description id="'+y(e.id)+'">'+y(e.text)+"</description>":"",l+='<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>',l+='<path d="',a=0;a<f.getModuleCount();a+=1)for(u=a*t+r,i=0;i<f.getModuleCount();i+=1)f.isDark(a,i)&&(l+="M"+(i*t+r)+","+u+c);return l+='" stroke="transparent" fill="black"/>',l+="</svg>"},f.createDataURL=function(t,r){t=t||2,r=void 0===r?4*t:r;var e=f.getModuleCount()*t+2*r,n=r,o=e-r;return I(e,e,function(r,e){if(n<=r&&r<o&&n<=e&&e<o){var i=Math.floor((r-n)/t),a=Math.floor((e-n)/t);return f.isDark(a,i)?0:1}return 1})},f.createImgTag=function(t,r,e){t=t||2,r=void 0===r?4*t:r;var n=f.getModuleCount()*t+2*r,o="";return o+="<img",o+=' src="',o+=f.createDataURL(t,r),o+='"',o+=' width="',o+=n,o+='"',o+=' height="',o+=n,o+='"',e&&(o+=' alt="',o+=y(e),o+='"'),o+="/>"};var y=function(t){for(var r="",e=0;e<t.length;e+=1){var n=t.charAt(e);switch(n){case"<":r+="&lt;";break;case">":r+="&gt;";break;case"&":r+="&amp;";break;case'"':r+="&quot;";break;default:r+=n}}return r};return f.createASCII=function(t,r){if((t=t||1)<2)return function(t){t=void 0===t?2:t;var r,e,n,o,i,a=1*f.getModuleCount()+2*t,u=t,c=a-t,g={"██":"█","█ ":"▀"," █":"▄","  ":" "},l={"██":"▀","█ ":"▀"," █":" ","  ":" "},h="";for(r=0;r<a;r+=2){for(n=Math.floor((r-u)/1),o=Math.floor((r+1-u)/1),e=0;e<a;e+=1)i="█",u<=e&&e<c&&u<=r&&r<c&&f.isDark(n,Math.floor((e-u)/1))&&(i=" "),u<=e&&e<c&&u<=r+1&&r+1<c&&f.isDark(o,Math.floor((e-u)/1))?i+=" ":i+="█",h+=t<1&&r+1>=c?l[i]:g[i];h+="\n"}return a%2&&t>0?h.substring(0,h.length-a-1)+Array(a+1).join("▀"):h.substring(0,h.length-1)}(r);t-=1,r=void 0===r?2*t:r;var e,n,o,i,a=f.getModuleCount()*t+2*r,u=r,c=a-r,g=Array(t+1).join("██"),l=Array(t+1).join("  "),h="",s="";for(e=0;e<a;e+=1){for(o=Math.floor((e-u)/t),s="",n=0;n<a;n+=1)i=1,u<=n&&n<c&&u<=e&&e<c&&f.isDark(o,Math.floor((n-u)/t))&&(i=0),s+=i?g:l;for(o=0;o<t;o+=1)h+=s+"\n"}return h.substring(0,h.length-1)},f.renderTo2dContext=function(t,r){r=r||2;for(var e=f.getModuleCount(),n=0;n<e;n++)for(var o=0;o<e;o++)t.fillStyle=f.isDark(n,o)?"black":"white",t.fillRect(o*r,n*r,r,r)},f};t.stringToBytes=(t.stringToBytesFuncs={default:function(t){for(var r=[],e=0;e<t.length;e+=1){var n=t.charCodeAt(e);r.push(255&n)}return r}}).default,t.createStringToBytes=function(t,r){var e=function(){for(var e=S(t),n=function(){var t=e.read();if(-1==t)throw"eof";return t},o=0,i={};;){var a=e.read();if(-1==a)break;var u=n(),f=n()<<8|n();i[String.fromCharCode(a<<8|u)]=f,o+=1}if(o!=r)throw o+" != "+r;return i}(),n="?".charCodeAt(0);return function(t){for(var r=[],o=0;o<t.length;o+=1){var i=t.charCodeAt(o);if(i<128)r.push(i);else{var a=e[t.charAt(o)];"number"==typeof a?(255&a)==a?r.push(a):(r.push(a>>>8),r.push(255&a)):r.push(n)}}return r}};var r,e,n,o,i,a=1,u=2,f=4,c=8,g={L:1,M:0,Q:3,H:2},l=0,h=1,s=2,v=3,d=4,w=5,p=6,y=7,B=(r=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],e=1335,n=7973,i=function(t){for(var r=0;0!=t;)r+=1,t>>>=1;return r},(o={}).getBCHTypeInfo=function(t){for(var r=t<<10;i(r)-i(e)>=0;)r^=e<<i(r)-i(e);return 21522^(t<<10|r)},o.getBCHTypeNumber=function(t){for(var r=t<<12;i(r)-i(n)>=0;)r^=n<<i(r)-i(n);return t<<12|r},o.getPatternPosition=function(t){return r[t-1]},o.getMaskFunction=function(t){switch(t){case l:return function(t,r){return(t+r)%2==0};case h:return function(t,r){return t%2==0};case s:return function(t,r){return r%3==0};case v:return function(t,r){return(t+r)%3==0};case d:return function(t,r){return(Math.floor(t/2)+Math.floor(r/3))%2==0};case w:return function(t,r){return t*r%2+t*r%3==0};case p:return function(t,r){return(t*r%2+t*r%3)%2==0};case y:return function(t,r){return(t*r%3+(t+r)%2)%2==0};default:throw"bad maskPattern:"+t}},o.getErrorCorrectPolynomial=function(t){for(var r=k([1],0),e=0;e<t;e+=1)r=r.multiply(k([1,C.gexp(e)],0));return r},o.getLengthInBits=function(t,r){if(1<=r&&r<10)switch(t){case a:return 10;case u:return 9;case f:case c:return 8;default:throw"mode:"+t}else if(r<27)switch(t){case a:return 12;case u:return 11;case f:return 16;case c:return 10;default:throw"mode:"+t}else{if(!(r<41))throw"type:"+r;switch(t){case a:return 14;case u:return 13;case f:return 16;case c:return 12;default:throw"mode:"+t}}},o.getLostPoint=function(t){for(var r=t.getModuleCount(),e=0,n=0;n<r;n+=1)for(var o=0;o<r;o+=1){for(var i=0,a=t.isDark(n,o),u=-1;u<=1;u+=1)if(!(n+u<0||r<=n+u))for(var f=-1;f<=1;f+=1)o+f<0||r<=o+f||0==u&&0==f||a==t.isDark(n+u,o+f)&&(i+=1);i>5&&(e+=3+i-5)}for(n=0;n<r-1;n+=1)for(o=0;o<r-1;o+=1){var c=0;t.isDark(n,o)&&(c+=1),t.isDark(n+1,o)&&(c+=1),t.isDark(n,o+1)&&(c+=1),t.isDark(n+1,o+1)&&(c+=1),0!=c&&4!=c||(e+=3)}for(n=0;n<r;n+=1)for(o=0;o<r-6;o+=1)t.isDark(n,o)&&!t.isDark(n,o+1)&&t.isDark(n,o+2)&&t.isDark(n,o+3)&&t.isDark(n,o+4)&&!t.isDark(n,o+5)&&t.isDark(n,o+6)&&(e+=40);for(o=0;o<r;o+=1)for(n=0;n<r-6;n+=1)t.isDark(n,o)&&!t.isDark(n+1,o)&&t.isDark(n+2,o)&&t.isDark(n+3,o)&&t.isDark(n+4,o)&&!t.isDark(n+5,o)&&t.isDark(n+6,o)&&(e+=40);var g=0;for(o=0;o<r;o+=1)for(n=0;n<r;n+=1)t.isDark(n,o)&&(g+=1);return e+=Math.abs(100*g/r/r-50)/5*10},o),C=function(){for(var t=new Array(256),r=new Array(256),e=0;e<8;e+=1)t[e]=1<<e;for(e=8;e<256;e+=1)t[e]=t[e-4]^t[e-5]^t[e-6]^t[e-8];for(e=0;e<255;e+=1)r[t[e]]=e;var n={glog:function(t){if(t<1)throw"glog("+t+")";return r[t]},gexp:function(r){for(;r<0;)r+=255;for(;r>=256;)r-=255;return t[r]}};return n}();function k(t,r){if(void 0===t.length)throw t.length+"/"+r;var e=function(){for(var e=0;e<t.length&&0==t[e];)e+=1;for(var n=new Array(t.length-e+r),o=0;o<t.length-e;o+=1)n[o]=t[o+e];return n}(),n={getAt:function(t){return e[t]},getLength:function(){return e.length},multiply:function(t){for(var r=new Array(n.getLength()+t.getLength()-1),e=0;e<n.getLength();e+=1)for(var o=0;o<t.getLength();o+=1)r[e+o]^=C.gexp(C.glog(n.getAt(e))+C.glog(t.getAt(o)));return k(r,0)},mod:function(t){if(n.getLength()-t.getLength()<0)return n;for(var r=C.glog(n.getAt(0))-C.glog(t.getAt(0)),e=new Array(n.getLength()),o=0;o<n.getLength();o+=1)e[o]=n.getAt(o);for(o=0;o<t.getLength();o+=1)e[o]^=C.gexp(C.glog(t.getAt(o))+r);return k(e,0).mod(t)}};return n}var A=function(){var t=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12,7,37,13],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],r=function(t,r){var e={};return e.totalCount=t,e.dataCount=r,e},e={};return e.getRSBlocks=function(e,n){var o=function(r,e){switch(e){case g.L:return t[4*(r-1)+0];case g.M:return t[4*(r-1)+1];case g.Q:return t[4*(r-1)+2];case g.H:return t[4*(r-1)+3];default:return}}(e,n);if(void 0===o)throw"bad rs block @ typeNumber:"+e+"/errorCorrectionLevel:"+n;for(var i=o.length/3,a=[],u=0;u<i;u+=1)for(var f=o[3*u+0],c=o[3*u+1],l=o[3*u+2],h=0;h<f;h+=1)a.push(r(c,l));return a},e}(),b=function(){var t=[],r=0,e={getBuffer:function(){return t},getAt:function(r){var e=Math.floor(r/8);return 1==(t[e]>>>7-r%8&1)},put:function(t,r){for(var n=0;n<r;n+=1)e.putBit(1==(t>>>r-n-1&1))},getLengthInBits:function(){return r},putBit:function(e){var n=Math.floor(r/8);t.length<=n&&t.push(0),e&&(t[n]|=128>>>r%8),r+=1}};return e},M=function(t){var r=a,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+2<r.length;)t.put(o(r.substring(n,n+3)),10),n+=3;n<r.length&&(r.length-n==1?t.put(o(r.substring(n,n+1)),4):r.length-n==2&&t.put(o(r.substring(n,n+2)),7))}},o=function(t){for(var r=0,e=0;e<t.length;e+=1)r=10*r+i(t.charAt(e));return r},i=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);throw"illegal char :"+t};return n},x=function(t){var r=u,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+1<r.length;)t.put(45*o(r.charAt(n))+o(r.charAt(n+1)),11),n+=2;n<r.length&&t.put(o(r.charAt(n)),6)}},o=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);if("A"<=t&&t<="Z")return t.charCodeAt(0)-"A".charCodeAt(0)+10;switch(t){case" ":return 36;case"$":return 37;case"%":return 38;case"*":return 39;case"+":return 40;case"-":return 41;case".":return 42;case"/":return 43;case":":return 44;default:throw"illegal char :"+t}};return n},m=function(r){var e=f,n=t.stringToBytes(r),o={getMode:function(){return e},getLength:function(t){return n.length},write:function(t){for(var r=0;r<n.length;r+=1)t.put(n[r],8)}};return o},L=function(r){var e=c,n=t.stringToBytesFuncs.SJIS;if(!n)throw"sjis not supported.";!function(){var t=n("友");if(2!=t.length||38726!=(t[0]<<8|t[1]))throw"sjis not supported."}();var o=n(r),i={getMode:function(){return e},getLength:function(t){return~~(o.length/2)},write:function(t){for(var r=o,e=0;e+1<r.length;){var n=(255&r[e])<<8|255&r[e+1];if(33088<=n&&n<=40956)n-=33088;else{if(!(57408<=n&&n<=60351))throw"illegal char at "+(e+1)+"/"+n;n-=49472}n=192*(n>>>8&255)+(255&n),t.put(n,13),e+=2}if(e<r.length)throw"illegal char at "+(e+1)}};return i},D=function(){var t=[],r={writeByte:function(r){t.push(255&r)},writeShort:function(t){r.writeByte(t),r.writeByte(t>>>8)},writeBytes:function(t,e,n){e=e||0,n=n||t.length;for(var o=0;o<n;o+=1)r.writeByte(t[o+e])},writeString:function(t){for(var e=0;e<t.length;e+=1)r.writeByte(t.charCodeAt(e))},toByteArray:function(){return t},toString:function(){var r="";r+="[";for(var e=0;e<t.length;e+=1)e>0&&(r+=","),r+=t[e];return r+="]"}};return r},S=function(t){var r=t,e=0,n=0,o=0,i={read:function(){for(;o<8;){if(e>=r.length){if(0==o)return-1;throw"unexpected end of file./"+o}var t=r.charAt(e);if(e+=1,"="==t)return o=0,-1;t.match(/^\s$/)||(n=n<<6|a(t.charCodeAt(0)),o+=6)}var i=n>>>o-8&255;return o-=8,i}},a=function(t){if(65<=t&&t<=90)return t-65;if(97<=t&&t<=122)return t-97+26;if(48<=t&&t<=57)return t-48+52;if(43==t)return 62;if(47==t)return 63;throw"c:"+t};return i},I=function(t,r,e){for(var n=function(t,r){var e=t,n=r,o=new Array(t*r),i={setPixel:function(t,r,n){o[r*e+t]=n},write:function(t){t.writeString("GIF87a"),t.writeShort(e),t.writeShort(n),t.writeByte(128),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(255),t.writeByte(255),t.writeByte(255),t.writeString(","),t.writeShort(0),t.writeShort(0),t.writeShort(e),t.writeShort(n),t.writeByte(0);var r=a(2);t.writeByte(2);for(var o=0;r.length-o>255;)t.writeByte(255),t.writeBytes(r,o,255),o+=255;t.writeByte(r.length-o),t.writeBytes(r,o,r.length-o),t.writeByte(0),t.writeString(";")}},a=function(t){for(var r=1<<t,e=1+(1<<t),n=t+1,i=u(),a=0;a<r;a+=1)i.add(String.fromCharCode(a));i.add(String.fromCharCode(r)),i.add(String.fromCharCode(e));var f,c,g,l=D(),h=(f=l,c=0,g=0,{write:function(t,r){if(t>>>r!=0)throw"length over";for(;c+r>=8;)f.writeByte(255&(t<<c|g)),r-=8-c,t>>>=8-c,g=0,c=0;g|=t<<c,c+=r},flush:function(){c>0&&f.writeByte(g)}});h.write(r,n);var s=0,v=String.fromCharCode(o[s]);for(s+=1;s<o.length;){var d=String.fromCharCode(o[s]);s+=1,i.contains(v+d)?v+=d:(h.write(i.indexOf(v),n),i.size()<4095&&(i.size()==1<<n&&(n+=1),i.add(v+d)),v=d)}return h.write(i.indexOf(v),n),h.write(e,n),h.flush(),l.toByteArray()},u=function(){var t={},r=0,e={add:function(n){if(e.contains(n))throw"dup key:"+n;t[n]=r,r+=1},size:function(){return r},indexOf:function(r){return t[r]},contains:function(r){return void 0!==t[r]}};return e};return i}(t,r),o=0;o<r;o+=1)for(var i=0;i<t;i+=1)n.setPixel(i,o,e(i,o));var a=D();n.write(a);for(var u=function(){var t=0,r=0,e=0,n="",o={},i=function(t){n+=String.fromCharCode(a(63&t))},a=function(t){if(t<0);else{if(t<26)return 65+t;if(t<52)return t-26+97;if(t<62)return t-52+48;if(62==t)return 43;if(63==t)return 47}throw"n:"+t};return o.writeByte=function(n){for(t=t<<8|255&n,r+=8,e+=1;r>=6;)i(t>>>r-6),r-=6},o.flush=function(){if(r>0&&(i(t<<6-r),t=0,r=0),e%3!=0)for(var o=3-e%3,a=0;a<o;a+=1)n+="="},o.toString=function(){return n},o}(),f=a.toByteArray(),c=0;c<f.length;c+=1)u.writeByte(f[c]);return u.flush(),"data:image/gif;base64,"+u};return t}();qrcode.stringToBytesFuncs["UTF-8"]=function(t){return function(t){for(var r=[],e=0;e<t.length;e++){var n=t.charCodeAt(e);n<128?r.push(n):n<2048?r.push(192|n>>6,128|63&n):n<55296||n>=57344?r.push(224|n>>12,128|n>>6&63,128|63&n):(e++,n=65536+((1023&n)<<10|1023&t.charCodeAt(e)),r.push(240|n>>18,128|n>>12&63,128|n>>6&63,128|63&n))}return r}(t)},function(t){"function"==typeof define&&define.amd?define([],t):"object"==typeof exports&&(module.exports=t())}(function(){return qrcode});
+</script>
+
+<script>
+(function(){
+  // ============================================================
+  //  SYNC SETUP — paste your free Supabase details here.
+  //  Full instructions are in the chat. Leave blank to run in
+  //  pass-and-play-only mode (everything works except cross-phone sync).
+  // ============================================================
+  const SUPABASE_URL = "https://muqxzeaqdjixgsvyvkkn.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11cXh6ZWFxZGppeGdzdnl2a2tuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NDU5ODIsImV4cCI6MjEwMDIyMTk4Mn0.pAAmkNohJKy3Tp4CytSfwh3A9aaAL9G4uKTbbmnn7Ko";
+  // ============================================================
+
+  const HAS_SUPABASE = SUPABASE_URL && SUPABASE_ANON_KEY;
+
+  // Storage adapter: Supabase if configured, else Claude's built-in
+  // window.storage if present, else null (sync unavailable).
+  const store = (function(){
+    if(HAS_SUPABASE){
+      const base = SUPABASE_URL.replace(/\/$/,'') + '/rest/v1/rooms_kv';
+      const headers = {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json'
+      };
+      return {
+        available: true,
+        async get(key){
+          const res = await fetch(`${base}?k=eq.${encodeURIComponent(key)}&select=v`, {headers});
+          if(!res.ok) throw new Error('get failed');
+          const rows = await res.json();
+          if(!rows.length) return null;
+          return { value: rows[0].v };
+        },
+        async set(key, value){
+          const res = await fetch(base, {
+            method:'POST',
+            headers:{...headers, 'Prefer':'resolution=merge-duplicates,return=minimal'},
+            body: JSON.stringify({ k:key, v:value })
+          });
+          if(!res.ok) throw new Error('set failed');
+          return { value };
+        }
+      };
+    }
+    if(typeof window!=='undefined' && window.storage){
+      return {
+        available: true,
+        get:(k)=>window.storage.get(k,true),
+        set:(k,v)=>window.storage.set(k,v,true)
+      };
+    }
+    return { available:false, get:async()=>null, set:async()=>null };
+  })();
+
+  const COLORS = {w:'#ffdf82',u:'#2fb8ff',b:'#c452e8',r:'#ff5a3c',g:'#34e08a',c:'#9fb4c9'};
+  const ORDER = ['g','u','r','w','b','c'];
+  const DEFAULT_TEMPLATES = [
+    {id:'t1',text:'Upkeep trigger',timing:'start'},
+    {id:'t2',text:'Draw step',timing:'start'},
+    {id:'t3',text:'Attack trigger',timing:'none'},
+    {id:'t4',text:'End step trigger',timing:'end'}
+  ];
+
+  let state = {
+    screen:'home', // home | connect | local-setup | local-game | synced-game
+    // connect form
+    formMode:'host', // host | join
+    formCode:'',
+    formName:'',
+    formColor:'g',
+    formLife:'40',
+    formCustomLife:40,
+    formError:'',
+    formBusy:false,
+    // local (single device) mode
+    numPlayers:4,
+    lifeMode:'40',
+    customLife:40,
+    setupNames:['','','','','',''],
+    setupColors:[0,1,2,3,4,5].map(i=>ORDER[i%6]),
+    players:[],
+    activeIndex:0,
+    round:1,
+    // synced mode
+    roomCode:null,
+    myId:null,
+    myPlayer:null,
+    isSpectator:false,
+    otherPlayers:{},
+    meta:null,
+    lastTurnSignature:null,
+    lastStarted:false,
+    pollTimer:null,
+    // shared
+    soundOn:true,
+    triggerTemplates: DEFAULT_TEMPLATES.map(t=>({...t})),
+    expanded:{},
+    cardOpen:{},
+    sheet:null,
+    lastRoll:null, // {kind:'d20'|'d6'|'coin'|'order', result, ranking, by, ts}
+    diceSpinning:false,
+    newTriggerText:'',
+    newTriggerTiming:'none' // none | start | end
+  };
+
+  let audioCtx=null;
+  const CHIME_NOTES = {
+    yourturn: [[523.25,0],[659.25,0.13],[783.99,0.26]],   // rising 3-note — it's your turn
+    start:    [[880,0],[1108.73,0.1]],                    // bright quick ping — start-of-turn trigger checked
+    end:      [[698.46,0],[493.88,0.11]]                  // soft falling tone — end-of-turn trigger checked
+  };
+  function playChime(kind){
+    if(!state.soundOn) return;
+    try{
+      audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+      if(audioCtx.state==='suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      (CHIME_NOTES[kind]||CHIME_NOTES.yourturn).forEach(([f,off])=>{
+        const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+        o.type='sine'; o.frequency.value=f;
+        g.gain.setValueAtTime(0.0001, now+off);
+        g.gain.exponentialRampToValueAtTime(0.22, now+off+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, now+off+0.5);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(now+off); o.stop(now+off+0.6);
+      });
+    }catch(e){}
+  }
+
+  function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.firstElementChild; }
+  function genCode(){ const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<4;i++) s+=chars[Math.floor(Math.random()*chars.length)]; return s; }
+  function genId(){ return Math.random().toString(36).slice(2,8); }
+  function buildJoinUrl(code){
+    try{
+      const base = window.location.origin + window.location.pathname;
+      return base + '?room=' + code;
+    }catch(e){ return code; }
+  }
+
+  function render(){
+    const app = document.getElementById('ct-app');
+    let html='';
+    if(state.screen==='home') html=renderHome();
+    else if(state.screen==='connect') html=renderConnect();
+    else if(state.screen==='local-setup') html=renderLocalSetup();
+    else if(state.screen==='synced-game' && state.meta && !state.meta.started) html=renderLobby();
+    else html=renderGameScreen();
+    app.innerHTML = html;
+    if(state.sheet){ app.appendChild(el(renderSheet())); }
+  }
+
+  // ================= HOME =================
+  function renderHome(){
+    const syncOn = store.available;
+    return `
+      <div class="home">
+        <div class="home-hero">
+          <div class="wheel"></div>
+          <h1>Command Tower</h1>
+          <p>Life, turns, commander damage &amp; triggers</p>
+        </div>
+        <button class="home-btn primary" ${syncOn?`onclick="CT.goConnect('host')"`:`onclick="CT.syncUnavailable()"`}>
+          <div class="t">Host a synced game ${syncOn?'':'🔒'}</div>
+          <div class="d">${syncOn?'Everyone joins from their own phone and stays in sync':'Sync isn\'t set up on this copy — tap to learn how'}</div>
+        </button>
+        <button class="home-btn" ${syncOn?`onclick="CT.goConnect('join')"`:`onclick="CT.syncUnavailable()"`}>
+          <div class="t">Join a synced game ${syncOn?'':'🔒'}</div>
+          <div class="d">${syncOn?'Have a room code? Jump into a game in progress':'Requires sync setup — tap to learn how'}</div>
+        </button>
+        <button class="home-btn" ${syncOn?`onclick="CT.goConnect('spectate')"`:`onclick="CT.syncUnavailable()"`}>
+          <div class="t">Spectate a game ${syncOn?'':'🔒'}</div>
+          <div class="d">${syncOn?'Watch a game live — no life total of your own':'Requires sync setup — tap to learn how'}</div>
+        </button>
+        <button class="home-btn" onclick="CT.goLocalSetup()">
+          <div class="t">Pass-and-play</div>
+          <div class="d">Everyone shares just this one phone</div>
+        </button>
+      </div>`;
+  }
+
+  // ================= CONNECT (host / join) =================
+  function renderConnect(){
+    const mode = state.formMode; // host | join | spectate
+    const isHost = mode==='host';
+    const needsCode = mode==='join' || mode==='spectate';
+    const needsIdentity = mode==='host' || mode==='join';
+    let swatches='';
+    Object.keys(COLORS).forEach(k=>{
+      swatches += `<button class="swatch ${k===state.formColor?'selected':''}" style="background:${COLORS[k]}" onclick="CT.setFormColor('${k}')"></button>`;
+    });
+    const titles = {host:'Host a game', join:'Join a game', spectate:'Watch a game'};
+    const subs = {
+      host:'Set the rules, then share the code that appears',
+      join:'Enter the room code your group shared',
+      spectate:'Follow along live — you won\'t have your own life total'
+    };
+    const btnLabel = state.formBusy ? 'Connecting…' : (isHost?'Create room':mode==='join'?'Join room':'Watch room');
+    return `
+      <div class="setup">
+        <button class="back-link" onclick="CT.goHome()">← Back</button>
+        <div class="setup-hero">
+          <div class="wheel"></div>
+          <h1>${titles[mode]}</h1>
+          <p>${subs[mode]}</p>
+        </div>
+
+        ${needsCode?`
+        <div class="card-block">
+          <h2>Room code</h2>
+          <input class="code-input" maxlength="4" placeholder="ABCD" value="${state.formCode}" oninput="CT.setFormCode(this.value)">
+        </div>`:''}
+
+        ${isHost?`
+        <div class="card-block">
+          <h2>Starting life</h2>
+          <div class="life-opts">
+            <div class="chip-opt ${state.formLife==='20'?'sel':''}" onclick="CT.setFormLife('20')">20</div>
+            <div class="chip-opt ${state.formLife==='40'?'sel':''}" onclick="CT.setFormLife('40')">40</div>
+            <div class="chip-opt ${state.formLife==='custom'?'sel':''}" onclick="CT.setFormLife('custom')">Custom</div>
+          </div>
+          ${state.formLife==='custom' ? `<input type="number" class="custom-life-input" value="${state.formCustomLife}" oninput="CT.setFormCustomLife(this.value)">` : ''}
+        </div>`:''}
+
+        ${needsIdentity?`
+        <div class="card-block">
+          <h2>You</h2>
+          <div class="player-setup-row">
+            <input maxlength="14" placeholder="Your name" value="${state.formName}" oninput="CT.setFormName(this.value)">
+            <div class="swatches">${swatches}</div>
+          </div>
+        </div>`:''}
+
+        ${state.formError?`<div class="error-text">${state.formError}</div>`:''}
+        <button class="start-btn" style="margin-top:6px" ${state.formBusy?'disabled':''} onclick="CT.submitConnect()">${btnLabel}</button>
+      </div>`;
+  }
+
+  // ================= LOCAL SETUP (single device) =================
+  function renderLocalSetup(){
+    let rows='';
+    for(let i=0;i<state.numPlayers;i++){
+      const colorKey = state.setupColors[i];
+      let swatches='';
+      Object.keys(COLORS).forEach(k=>{
+        swatches += `<button class="swatch ${k===colorKey?'selected':''}" style="background:${COLORS[k]}" onclick="CT.setLocalColor(${i},'${k}')"></button>`;
+      });
+      rows += `
+        <div class="player-setup-row">
+          <input maxlength="14" placeholder="Player ${i+1}" value="${state.setupNames[i]||''}" oninput="CT.setLocalName(${i},this.value)">
+          <div class="swatches">${swatches}</div>
+        </div>`;
+    }
+    return `
+      <div class="setup">
+        <button class="back-link" onclick="CT.goHome()">← Back</button>
+        <div class="setup-hero">
+          <div class="wheel"></div>
+          <h1>Pass-and-play</h1>
+          <p>One phone, everyone takes turns holding it</p>
+        </div>
+        <div class="card-block">
+          <h2>Players</h2>
+          <div class="stepper">
+            <button onclick="CT.changePlayers(-1)">−</button>
+            <div class="count">${state.numPlayers}</div>
+            <button onclick="CT.changePlayers(1)">+</button>
+          </div>
+        </div>
+        <div class="card-block">
+          <h2>Starting life</h2>
+          <div class="life-opts">
+            <div class="chip-opt ${state.lifeMode==='20'?'sel':''}" onclick="CT.setLifeMode('20')">20</div>
+            <div class="chip-opt ${state.lifeMode==='40'?'sel':''}" onclick="CT.setLifeMode('40')">40</div>
+            <div class="chip-opt ${state.lifeMode==='custom'?'sel':''}" onclick="CT.setLifeMode('custom')">Custom</div>
+          </div>
+          ${state.lifeMode==='custom' ? `<input type="number" class="custom-life-input" value="${state.customLife}" oninput="CT.setCustomLife(this.value)">` : ''}
+        </div>
+        <div class="card-block">
+          <h2>Names &amp; colors</h2>
+          ${rows}
+        </div>
+        <button class="start-btn" onclick="CT.startLocalGame()">Start Game</button>
+      </div>`;
+  }
+
+  // ================= GAME (shared by local + synced) =================
+  function currentPlayers(){
+    if(state.screen==='synced-game'){
+      return (state.meta.playerIds||[]).map(id=> id===state.myId ? state.myPlayer : state.otherPlayers[id]).filter(Boolean);
+    }
+    return state.players;
+  }
+  function currentActiveId(){
+    if(state.screen==='synced-game'){
+      return (state.meta.playerIds||[])[state.meta.activeIndex];
+    }
+    const p = state.players[state.activeIndex];
+    return p ? p.id : null;
+  }
+  function currentRound(){ return state.screen==='synced-game' ? state.meta.round : state.round; }
+  function currentTemplates(){ return state.screen==='synced-game' ? (state.meta.triggerTemplates||[]) : state.triggerTemplates; }
+  function currentMonarch(){ return state.screen==='synced-game' ? (state.meta.monarch||null) : (state.monarch||null); }
+  function isEditable(id){ return state.screen==='synced-game' ? (!state.isSpectator && id===state.myId) : true; }
+
+  function renderLobby(){
+    const players = currentPlayers();
+    const spectating = state.isSpectator;
+    const rows = players.map(p=>`
+      <div class="lobby-row">
+        <div class="pc-dot" style="background:${COLORS[p.color]}"></div>
+        <span>${p.name}</span>
+      </div>`).join('') || `<p class="lobby-empty">Waiting for players to join…</p>`;
+    return `
+      <div class="topbar">
+        <div class="turn-pill">
+          <div class="turn-text">Lobby
+            <span class="round">Room ${state.roomCode} <span class="live-dot"></span> live</span>
+          </div>
+        </div>
+        <div class="topbar-icons">
+          <button class="icon-btn" onclick="CT.openSheet('settings')">⚙️</button>
+        </div>
+      </div>
+      <div class="setup" style="padding-top:14px;">
+        <div class="room-share">
+          <div class="lbl">ROOM CODE</div>
+          <div class="code">${state.roomCode}</div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
+            <button class="copy-btn" onclick="CT.copyCode()">Copy code</button>
+            <button class="copy-btn" onclick="CT.openSheet('qr')">Show QR</button>
+          </div>
+        </div>
+        <div class="card-block">
+          <h2>Players joined (${players.length})</h2>
+          ${rows}
+        </div>
+        ${spectating
+          ? `<p class="lobby-empty">Waiting for the host to start the game…</p>`
+          : `<button class="start-btn" ${players.length<1?'disabled':''} onclick="CT.startSyncedGame()">Start Game</button>
+             <p class="lobby-hint">Randomly picks who goes first</p>`}
+      </div>`;
+  }
+
+  function renderGameScreen(){
+    const players = currentPlayers();
+    const activeId = currentActiveId();
+    const active = players.find(p=>p.id===activeId) || players[0];
+    if(!active) return `<div class="players"><p style="padding:40px;text-align:center;color:var(--ink-dim)">Waiting for players to join…</p></div>`;
+    const cards = players.map(p=>renderCardAuto(p, players, p.id===activeId)).join('');
+    const synced = state.screen==='synced-game';
+    const spectating = synced && state.isSpectator;
+    return `
+      <div class="topbar">
+        <div class="turn-pill">
+          <div class="turn-dot" style="background:${COLORS[active.color]};color:${COLORS[active.color]}"></div>
+          <div class="turn-text">${active.name}'s turn
+            <span class="round">Round ${currentRound()} ${synced?'<span class="live-dot"></span> live':''}</span>
+          </div>
+        </div>
+        <div class="topbar-icons">
+          <button class="icon-btn" onclick="CT.openSheet('dice')">🎲</button>
+          <button class="icon-btn" onclick="CT.openSheet('settings')">⚙️</button>
+        </div>
+      </div>
+      <div class="players">${cards}</div>
+      ${spectating
+        ? `<div class="bottombar"><button class="fab" onclick="CT.openSheet('dice')">🎲</button><div class="spectate-badge">👁️ Spectating — updates live</div></div>`
+        : `<div class="bottombar">
+        <button class="fab" onclick="CT.openSheet('dice')">🎲</button>
+        <button class="next-turn-btn" style="--pcactive:${COLORS[active.color]}" onclick="CT.nextTurn()">Next Turn →</button>
+      </div>`}`;
+  }
+
+  function renderManaRow(p, editable){
+    const mana = p.mana||{};
+    const total = Object.keys(mana).reduce((a,k)=>a+(mana[k]||0),0);
+
+    if(!editable){
+      const chips = Object.keys(COLORS)
+        .filter(k=>(mana[k]||0)>0)
+        .map(k=>`<div class="mana-chip"><div class="sym" style="background:${COLORS[k]}"></div><span>${mana[k]}</span></div>`)
+        .join('');
+      return `
+        <div class="mini-lbl">Floating mana</div>
+        <div class="mana-row-view">${chips || '<span class="mana-none">None</span>'}</div>`;
+    }
+
+    const cells = Object.keys(COLORS).map(k=>`
+      <div class="mana-cell">
+        <button class="mc-add" onclick="CT.adjustMana('${p.id}','${k}',1)">
+          <div class="sym" style="background:${COLORS[k]}"></div>
+          <div class="cnt">${mana[k]||0}</div>
+        </button>
+        <button class="mc-sub" onclick="CT.adjustMana('${p.id}','${k}',-1)">−</button>
+      </div>`).join('');
+    return `
+      <div class="mini-lbl">Floating mana · tap a color to add</div>
+      <div class="mana-row">${cells}</div>
+      ${total>0?`<button class="mana-clear" onclick="CT.clearMana('${p.id}')">Clear floating mana (${total})</button>`:''}`;
+  }
+
+  function isCardBig(p, isActive){
+    return isActive ? (state.cardOpen[p.id] !== false) : (state.cardOpen[p.id] === true);
+  }
+
+  function renderCompactCard(p, isActive){
+    const poison = p.poison||0;
+    const defeated = p.life<=0 || poison>=10;
+    const isMonarch = currentMonarch()===p.id;
+    return `
+      <div class="player-card-compact ${defeated?'defeated':''}" style="--pc:${COLORS[p.color]}" onclick="CT.toggleCardOpen('${p.id}')">
+        <div class="pcc-dot"></div>
+        <div class="pcc-name">${p.name}${isMonarch?' 👑':''}</div>
+        ${poison>0?`<div class="pcc-badge ${poison>=10?'lethal':''}">☠${poison}</div>`:''}
+        ${defeated?`<div class="pcc-badge lethal">OUT</div>`:''}
+        <div class="pcc-life">${p.life}</div>
+        <div class="pcc-chevron">▾</div>
+      </div>`;
+  }
+
+  function renderCardAuto(p, allPlayers, isActive){
+    return isCardBig(p, isActive) ? renderPlayerCard(p, allPlayers, isActive) : renderCompactCard(p, isActive);
+  }
+
+  function renderPlayerCard(p, allPlayers, isActive){
+    const editable = isEditable(p.id);
+    const poison = p.poison||0;
+    const defeated = p.life<=0 || poison>=10;
+    const checkedCount = (p.triggers||[]).filter(t=>t.checked).length;
+    const expanded = !!state.expanded[p.id];
+    const isMe = state.screen==='synced-game' && p.id===state.myId;
+    const isMonarch = currentMonarch()===p.id;
+
+    let chips='';
+    allPlayers.forEach(op=>{
+      if(op.id===p.id) return;
+      const dmg = (p.cmdDmg && p.cmdDmg[op.id]) || 0;
+      const lethal = dmg>=21;
+      chips += `
+        <div class="cmd-chip ${lethal?'lethal':''}">
+          <div class="cmd-dot" style="background:${COLORS[op.color]}"></div>
+          ${editable?`<button onclick="CT.cmdDmg('${p.id}','${op.id}',-1)">−</button>`:''}
+          <div class="cmd-num">${dmg}</div>
+          ${editable?`<button onclick="CT.cmdDmg('${p.id}','${op.id}',1)">+</button>`:''}
+        </div>`;
+    });
+
+    let trigPanel='';
+    if(expanded){
+      trigPanel = `<div class="trig-panel">` + (p.triggers||[]).map(t=>`
+        <div class="trig-item ${t.checked?'checked':''}" ${editable?`onclick="CT.toggleTrigger('${p.id}','${t.id}')"`:''}>
+          <div class="trig-box ${t.checked?'checked':''}">${t.checked?'✓':''}</div>
+          <span>${t.text}${t.timing==='start'?' 🔔':t.timing==='end'?' 🔕':''}</span>
+        </div>`).join('') + `</div>`;
+    }
+
+    return `
+      <div class="player-card ${isActive?'active':''} ${defeated?'defeated':''} ${editable?'':'readonly'}" style="--pc:${COLORS[p.color]}">
+        ${isMonarch?'<div class="crown-badge">👑</div>':''}
+        ${isActive?'<div class="ribbon">TURN</div>':''}
+        <div class="pc-header">
+          <div class="pc-dot"></div>
+          <div class="pc-name">${p.name}</div>
+          ${isMe?'<div class="pc-you">YOU</div>':''}
+          ${defeated?'<div class="defeated-tag">DEFEATED</div>':''}
+          <button class="pc-toggle" onclick="CT.toggleCardOpen('${p.id}')">▴</button>
+        </div>
+        <div class="life-row">
+          ${editable?`<button class="life-btn" ${holdAttrs(p.id,-1)}>−</button>`:'<div style="width:52px"></div>'}
+          <div class="life-num">${p.life}</div>
+          ${editable?`<button class="life-btn" ${holdAttrs(p.id,1)}>+</button>`:'<div style="width:52px"></div>'}
+        </div>
+        ${editable?`<div class="life-sub"><button onclick="CT.adjustLife('${p.id}',-5)">−5</button><button onclick="CT.adjustLife('${p.id}',5)">+5</button></div>`:''}
+        <div class="cmd-row">${chips}</div>
+        <div class="stat-row">
+          <div class="poison-chip ${poison>=10?'lethal':(poison>0?'warn':'')}">
+            <span>☠</span>
+            ${editable?`<button onclick="CT.adjustPoison('${p.id}',-1)">−</button>`:''}
+            <span class="cmd-num">${poison}</span>
+            ${editable?`<button onclick="CT.adjustPoison('${p.id}',1)">+</button>`:''}
+            <span style="opacity:.75">poison</span>
+          </div>
+          <div class="monarch-chip ${isMonarch?'held':''}">
+            <span>👑</span>
+            ${isMonarch
+              ? `<span>Monarch</span>${editable?`<button onclick="CT.setMonarch(null)">✕</button>`:''}`
+              : (editable?`<button onclick="CT.setMonarch('${p.id}')">Claim</button>`:`<span style="opacity:.6">—</span>`)}
+          </div>
+        </div>
+        ${renderManaRow(p, editable)}
+        <button class="trig-toggle" onclick="CT.toggleExpand('${p.id}')">
+          <span>Triggers (${checkedCount}/${(p.triggers||[]).length})</span><span>${expanded?'▴':'▾'}</span>
+        </button>
+        ${trigPanel}
+      </div>`;
+  }
+
+  function holdAttrs(id,delta){
+    return `onclick="CT.adjustLife('${id}',${delta})" onmousedown="CT.holdStart('${id}',${delta})" onmouseup="CT.holdEnd()" onmouseleave="CT.holdEnd()" ontouchstart="CT.holdStart('${id}',${delta})" ontouchend="CT.holdEnd()"`;
+  }
+
+  // ================= SHEET =================
+  function renderSheet(){
+    if(state.sheet==='dice') return renderDiceSheet();
+    if(state.sheet==='settings') return renderSettingsSheet();
+    if(state.sheet==='qr') return renderQrSheet();
+    return '<div></div>';
+  }
+
+  function renderQrSheet(){
+    const code = state.roomCode;
+    const url = buildJoinUrl(code);
+    let imgHtml;
+    try{
+      const qr = qrcode(0,'M');
+      qr.addData(url);
+      qr.make();
+      const dataUrl = qr.createDataURL(8,4);
+      imgHtml = `<img src="${dataUrl}" alt="QR code to join room ${code}" class="qr-img">`;
+    }catch(e){
+      imgHtml = `<p class="lobby-empty">Couldn't generate a QR code on this device — use the code or link instead.</p>`;
+    }
+    return `
+      <div class="sheet-overlay" onclick="if(event.target===this)CT.closeSheet()">
+        <div class="sheet" style="text-align:center;">
+          <button class="icon-btn sheet-close" onclick="CT.closeSheet()">✕</button>
+          <h2>Scan to join</h2>
+          <div class="qr-wrap">${imgHtml}</div>
+          <div class="qr-code-text">${code}</div>
+          <button class="sheet-btn" onclick="CT.copyLink()">Copy join link</button>
+        </div>
+      </div>`;
+  }
+
+  function renderDiceSheet(){
+    const synced = state.screen==='synced-game';
+    const spectating = synced && state.isSpectator;
+    let body='';
+    if(!spectating){
+      body += `
+        <button class="sheet-btn" onclick="CT.rollForOrder()">Decide who goes first</button>
+        <button class="sheet-btn" onclick="CT.rollSingle(20)">Roll d20</button>
+        <button class="sheet-btn" onclick="CT.rollSingle(6)">Roll d6</button>
+        <button class="sheet-btn" onclick="CT.rollCoin()">Flip a coin</button>`;
+    }
+
+    const r = state.lastRoll;
+    if(state.diceSpinning){
+      body += `<div class="die-result"><div class="num spin">🎲</div><div class="label">Rolling…</div></div>`;
+    } else if(r && r.kind==='order'){
+      body += `<div class="mini-lbl" style="margin-top:14px;">${r.by?`${r.by} rolled for turn order`:'Turn order roll'}${synced?' <span class="live-dot"></span>':''}</div>
+        <div class="rank-list">` + r.ranking.map((rr,idx)=>`
+          <div class="rank-row ${idx===0?'winner':''}">
+            <div class="rn">${idx+1}</div>
+            <div style="width:9px;height:9px;border-radius:50%;background:${COLORS[rr.color]}"></div>
+            <div style="flex:1">${rr.name}</div>
+            <div class="num" style="font-size:16px">${rr.roll}</div>
+          </div>`).join('') + `</div>`;
+    } else if(r){
+      const kindLabel = r.kind==='coin' ? 'flipped a coin' : `rolled a ${r.kind}`;
+      body += `<div class="die-result">
+        <div class="num">${r.result}</div>
+        <div class="label">${r.by?`${r.by} ${kindLabel}`:'Result'}${synced?' <span class="live-dot"></span>':''}</div>
+      </div>`;
+    } else if(spectating){
+      body += `<div class="mini-lbl" style="margin-top:14px;">No rolls yet — waiting on the table</div>`;
+    }
+
+    return `
+      <div class="sheet-overlay" onclick="if(event.target===this)CT.closeSheet()">
+        <div class="sheet">
+          <button class="icon-btn sheet-close" onclick="CT.closeSheet()">✕</button>
+          <h2>Dice &amp; coin</h2>
+          ${body}
+        </div>
+      </div>`;
+  }
+
+  function renderSettingsSheet(){
+    const templates = currentTemplates();
+    const synced = state.screen==='synced-game';
+    const spectating = synced && state.isSpectator;
+    const rows = templates.map(t=>`
+      <div class="trig-manage-row">
+        <span>${t.text}</span>
+        ${t.timing==='start'?'<span class="timing-tag start">🔔 Start</span>':t.timing==='end'?'<span class="timing-tag end">🔕 End</span>':''}
+        ${spectating?'':`<button onclick="CT.removeTrigger('${t.id}')">✕</button>`}
+      </div>`).join('');
+    return `
+      <div class="sheet-overlay" onclick="if(event.target===this)CT.closeSheet()">
+        <div class="sheet">
+          <button class="icon-btn sheet-close" onclick="CT.closeSheet()">✕</button>
+          ${synced?`
+          <div class="room-code-chip">
+            <div>
+              <div style="font-size:11px;color:var(--ink-dim);font-weight:800;">ROOM CODE</div>
+              <div class="code">${state.roomCode}</div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="copy-btn" onclick="CT.copyCode()">Copy</button>
+              <button class="copy-btn" onclick="CT.openSheet('qr')">QR</button>
+            </div>
+          </div>`:''}
+          ${spectating?'':`
+          <h2>Manage triggers</h2>
+          ${rows}
+          <div class="add-trig-row">
+            <input placeholder="New trigger..." value="${state.newTriggerText}" oninput="CT.setNewTrigger(this.value)">
+            <button onclick="CT.addTrigger()">Add</button>
+          </div>
+          <div class="timing-row">
+            <button class="timing-opt ${state.newTriggerTiming==='none'?'sel':''}" onclick="CT.setNewTriggerTiming('none')">No sound</button>
+            <button class="timing-opt ${state.newTriggerTiming==='start'?'sel':''}" onclick="CT.setNewTriggerTiming('start')">🔔 Start of turn</button>
+            <button class="timing-opt ${state.newTriggerTiming==='end'?'sel':''}" onclick="CT.setNewTriggerTiming('end')">🔕 End of turn</button>
+          </div>
+          `}
+          <div style="height:18px"></div>
+          <h2>Game</h2>
+          <button class="sheet-btn" onclick="CT.toggleSound()">Turn sound: ${state.soundOn?'On 🔔':'Off 🔕'}</button>
+          <button class="sheet-btn ${synced?'danger':''}" onclick="${synced?'CT.leaveRoom()':'CT.newGame()'}">${spectating?'Stop spectating':synced?'Leave room':'New game'}</button>
+        </div>
+      </div>`;
+  }
+
+  // ================= ACTIONS =================
+  let holdTimeout=null, holdInterval=null, writeDebounce=null;
+
+  const CT = {
+    // navigation
+    goHome(){ CT.stopPolling(); state.screen='home'; state.sheet=null; state.isSpectator=false; state.myPlayer=null; state.myId=null; state.lastRoll=null; state.lastStarted=false; state.cardOpen={}; render(); },
+    goConnect(mode){ state.screen='connect'; state.formMode=mode; state.formError=''; state.formCode=''; render(); },
+    goLocalSetup(){ state.screen='local-setup'; render(); },
+    syncUnavailable(){ alert("Cross-phone sync needs a quick one-time setup (free Supabase details pasted into this file). Until then, Pass-and-play works fully on a single phone."); },
+
+    // connect form
+    setFormCode(v){ state.formCode=v.toUpperCase().slice(0,4); },
+    setFormName(v){ state.formName=v; },
+    setFormColor(k){ state.formColor=k; render(); },
+    setFormLife(m){ state.formLife=m; render(); },
+    setFormCustomLife(v){ state.formCustomLife=v; },
+
+    async submitConnect(){
+      state.formError='';
+      const name = state.formName.trim() || 'Player';
+      const color = state.formColor;
+      state.formBusy=true; render();
+      try{
+        if(state.formMode==='host'){
+          const code = genCode();
+          const lifeStart = state.formLife==='custom' ? (parseInt(state.formCustomLife)||40) : parseInt(state.formLife);
+          const meta = { activeIndex:0, round:1, monarch:null, started:false, triggerTemplates: DEFAULT_TEMPLATES.map(t=>({...t})), playerIds:[], lifeStart };
+          await store.set(`room:${code}:meta`, JSON.stringify(meta));
+          await CT._joinRoom(code, name, color);
+        } else if(state.formMode==='join'){
+          const code = state.formCode.trim().toUpperCase();
+          if(code.length<4){ state.formError='Enter the 4-character room code.'; state.formBusy=false; render(); return; }
+          await CT._joinRoom(code, name, color);
+        } else {
+          const code = state.formCode.trim().toUpperCase();
+          if(code.length<4){ state.formError='Enter the 4-character room code.'; state.formBusy=false; render(); return; }
+          await CT._spectateRoom(code);
+        }
+      } catch(e){
+        state.formError = "Couldn't find that room. Double check the code and try again.";
+        state.formBusy=false; render();
+      }
+    },
+
+    async _joinRoom(code, name, color){
+      const metaRes = await store.get(`room:${code}:meta`);
+      if(!metaRes) throw new Error('not found');
+      let meta = JSON.parse(metaRes.value);
+      if((meta.playerIds||[]).length>=6){ state.formError='This room is full (6 players max).'; state.formBusy=false; render(); return; }
+      const id = genId();
+      const player = { id, name, color, life: meta.lifeStart, poison:0, mana:{w:0,u:0,b:0,r:0,g:0,c:0}, cmdDmg:{}, triggers: meta.triggerTemplates.map(t=>({id:t.id,text:t.text,timing:t.timing||'none',checked:false})) };
+      meta.playerIds = [...(meta.playerIds||[]), id];
+      await store.set(`room:${code}:meta`, JSON.stringify(meta));
+      await store.set(`room:${code}:player:${id}`, JSON.stringify(player));
+
+      state.roomCode = code;
+      state.myId = id;
+      state.myPlayer = player;
+      state.isSpectator = false;
+      state.meta = meta;
+      state.otherPlayers = {};
+      state.lastTurnSignature = meta.activeIndex+':'+meta.round;
+      state.lastStarted = !!meta.started;
+      state.cardOpen = {};
+      state.formBusy=false;
+      state.screen='synced-game';
+      render();
+      CT.startPolling();
+    },
+
+    async _spectateRoom(code){
+      const metaRes = await store.get(`room:${code}:meta`);
+      if(!metaRes) throw new Error('not found');
+      const meta = JSON.parse(metaRes.value);
+
+      state.roomCode = code;
+      state.myId = null;
+      state.myPlayer = null;
+      state.isSpectator = true;
+      state.meta = meta;
+      state.otherPlayers = {};
+      state.lastTurnSignature = meta.activeIndex+':'+meta.round;
+      state.lastStarted = !!meta.started;
+      state.cardOpen = {};
+      state.formBusy=false;
+      state.screen='synced-game';
+      render();
+      CT.startPolling();
+    },
+
+    copyCode(){
+      try{ navigator.clipboard.writeText(state.roomCode); }catch(e){}
+    },
+    copyLink(){
+      try{ navigator.clipboard.writeText(buildJoinUrl(state.roomCode)); }catch(e){}
+    },
+
+    startPolling(){
+      CT.stopPolling();
+      state.pollTimer = setInterval(CT.poll, 2500);
+    },
+    stopPolling(){
+      if(state.pollTimer){ clearInterval(state.pollTimer); state.pollTimer=null; }
+    },
+    async poll(){
+      if(state.screen!=='synced-game' || !state.roomCode) return;
+      try{
+        const metaRes = await store.get(`room:${state.roomCode}:meta`);
+        const meta = JSON.parse(metaRes.value);
+        state.meta = meta;
+
+        const others={};
+        for(const pid of (meta.playerIds||[])){
+          if(pid===state.myId) continue;
+          try{
+            const r = await store.get(`room:${state.roomCode}:player:${pid}`);
+            others[pid] = JSON.parse(r.value);
+          }catch(e){ /* not written yet */ }
+        }
+        state.otherPlayers = others;
+
+        if(state.myPlayer){
+          // reconcile my triggers against template changes
+          const ids = (meta.triggerTemplates||[]).map(t=>t.id);
+          let changed=false;
+          state.myPlayer.triggers = state.myPlayer.triggers.filter(t=>{
+            const keep = ids.includes(t.id);
+            if(!keep) changed=true;
+            return keep;
+          });
+          (meta.triggerTemplates||[]).forEach(t=>{
+            if(!state.myPlayer.triggers.find(x=>x.id===t.id)){
+              state.myPlayer.triggers.push({id:t.id,text:t.text,timing:t.timing||'none',checked:false});
+              changed=true;
+            }
+          });
+
+          // detect turn change (or game just starting) -> reset my triggers
+          const sig = meta.activeIndex+':'+meta.round;
+          const justStarted = !!meta.started && !state.lastStarted;
+          const turnAdvanced = !!meta.started && state.lastTurnSignature!==null && sig!==state.lastTurnSignature;
+          if(justStarted || turnAdvanced){
+            state.myPlayer.triggers.forEach(t=>t.checked=false);
+            changed=true;
+            if(meta.started && (meta.playerIds||[])[meta.activeIndex]===state.myId) playChime('yourturn');
+          }
+          state.lastTurnSignature = sig;
+          if(changed) CT.pushMyPlayer();
+        }
+        state.lastStarted = !!meta.started;
+
+        try{
+          const diceRes = await store.get(`room:${state.roomCode}:dice`);
+          if(diceRes){
+            const d = JSON.parse(diceRes.value);
+            if(!state.lastRoll || d.ts !== state.lastRoll.ts) state.lastRoll = d;
+          }
+        }catch(e){ /* no rolls made in this room yet */ }
+
+        render();
+      }catch(e){ /* room may be temporarily unreachable, skip this tick */ }
+    },
+    pushMyPlayer(){
+      if(!state.roomCode || !state.myPlayer) return;
+      store.set(`room:${state.roomCode}:player:${state.myId}`, JSON.stringify(state.myPlayer)).catch(()=>{});
+    },
+    debouncedPush(){
+      clearTimeout(writeDebounce);
+      writeDebounce = setTimeout(CT.pushMyPlayer, 350);
+    },
+
+    leaveRoom(){ CT.goHome(); },
+
+    // local setup
+    changePlayers(delta){ state.numPlayers = Math.min(6, Math.max(2, state.numPlayers+delta)); render(); },
+    setLocalName(i,val){ state.setupNames[i]=val; },
+    setLocalColor(i,key){ state.setupColors[i]=key; render(); },
+    setLifeMode(mode){ state.lifeMode=mode; render(); },
+    setCustomLife(val){ state.customLife=val; },
+
+    startLocalGame(){
+      const life = state.lifeMode==='custom' ? (parseInt(state.customLife)||40) : parseInt(state.lifeMode);
+      const players=[];
+      for(let i=0;i<state.numPlayers;i++){
+        players.push({
+          id:String(i),
+          name: state.setupNames[i] && state.setupNames[i].trim() ? state.setupNames[i].trim() : `Player ${i+1}`,
+          color: state.setupColors[i],
+          life,
+          poison:0,
+          mana:{w:0,u:0,b:0,r:0,g:0,c:0},
+          cmdDmg:{},
+          triggers: state.triggerTemplates.map(t=>({id:t.id,text:t.text,timing:t.timing||'none',checked:false}))
+        });
+      }
+      players.forEach(p=>{ players.forEach(op=>{ if(op.id!==p.id) p.cmdDmg[op.id]=0; }); });
+      state.players=players;
+      state.activeIndex=0;
+      state.round=1;
+      state.monarch=null;
+      state.lastRoll=null;
+      state.cardOpen={};
+      state.screen='local-game';
+      render();
+    },
+    newGame(){ state.screen='local-setup'; state.sheet=null; state.players=[]; render(); },
+
+    // shared game actions (branch on screen)
+    adjustLife(id,delta){
+      if(state.screen==='synced-game'){
+        if(id!==state.myId) return;
+        state.myPlayer.life += delta;
+        CT.debouncedPush();
+      } else {
+        const p = state.players.find(x=>x.id===id);
+        p.life += delta;
+      }
+      render();
+    },
+    holdStart(id,delta){
+      clearTimeout(holdTimeout); clearInterval(holdInterval);
+      holdTimeout = setTimeout(()=>{ holdInterval = setInterval(()=>{ CT.adjustLife(id,delta); },110); },400);
+    },
+    holdEnd(){ clearTimeout(holdTimeout); clearInterval(holdInterval); },
+
+    cmdDmg(id,opId,delta){
+      const applyTo = (pl)=>{
+        const before = pl.cmdDmg[opId]||0;
+        const after = Math.max(0, before+delta);
+        pl.cmdDmg[opId] = after;
+        pl.life -= (after - before); // commander damage is combat damage: also hits life
+      };
+      if(state.screen==='synced-game'){
+        if(id!==state.myId) return;
+        applyTo(state.myPlayer);
+        CT.debouncedPush();
+      } else {
+        applyTo(state.players.find(x=>x.id===id));
+      }
+      render();
+    },
+
+    adjustPoison(id,delta){
+      if(state.screen==='synced-game'){
+        if(id!==state.myId) return;
+        state.myPlayer.poison = Math.max(0,(state.myPlayer.poison||0)+delta);
+        CT.debouncedPush();
+      } else {
+        const p = state.players.find(x=>x.id===id);
+        p.poison = Math.max(0,(p.poison||0)+delta);
+      }
+      render();
+    },
+
+    adjustMana(id,key,delta){
+      if(state.screen==='synced-game'){
+        if(id!==state.myId) return;
+        if(!state.myPlayer.mana) state.myPlayer.mana={};
+        state.myPlayer.mana[key] = Math.max(0,(state.myPlayer.mana[key]||0)+delta);
+        CT.debouncedPush();
+      } else {
+        const p = state.players.find(x=>x.id===id);
+        if(!p.mana) p.mana={};
+        p.mana[key] = Math.max(0,(p.mana[key]||0)+delta);
+      }
+      render();
+    },
+
+    clearMana(id){
+      const empty = {w:0,u:0,b:0,r:0,g:0,c:0};
+      if(state.screen==='synced-game'){
+        if(id!==state.myId) return;
+        state.myPlayer.mana = {...empty};
+        CT.debouncedPush();
+      } else {
+        const p = state.players.find(x=>x.id===id);
+        p.mana = {...empty};
+      }
+      render();
+    },
+
+    async setMonarch(id){
+      if(state.screen==='synced-game'){
+        state.meta.monarch = id;
+        render();
+        try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(state.meta)); }catch(e){}
+      } else {
+        state.monarch = id;
+        render();
+      }
+    },
+
+    toggleSound(){ state.soundOn=!state.soundOn; if(state.soundOn) playChime('yourturn'); render(); },
+
+    toggleExpand(id){ state.expanded[id]=!state.expanded[id]; render(); },
+    toggleCardOpen(id){
+      const activeId = currentActiveId();
+      const cur = isCardBig({id}, id===activeId);
+      state.cardOpen[id] = !cur;
+      render();
+    },
+    toggleTrigger(id,tid){
+      if(state.screen==='synced-game'){
+        if(id!==state.myId) return;
+        const t = state.myPlayer.triggers.find(x=>x.id===tid);
+        t.checked=!t.checked;
+        if(t.checked && (t.timing==='start'||t.timing==='end')) playChime(t.timing);
+        CT.pushMyPlayer();
+      } else {
+        const p = state.players.find(x=>x.id===id);
+        const t = p.triggers.find(x=>x.id===tid);
+        t.checked=!t.checked;
+        if(t.checked && (t.timing==='start'||t.timing==='end')) playChime(t.timing);
+      }
+      render();
+    },
+
+    async nextTurn(){
+      if(state.screen==='synced-game'){
+        const meta = state.meta;
+        meta.activeIndex = (meta.activeIndex+1) % meta.playerIds.length;
+        if(meta.activeIndex===0) meta.round++;
+        state.meta = meta;
+        state.lastTurnSignature = meta.activeIndex+':'+meta.round;
+        state.myPlayer.triggers.forEach(t=>t.checked=false);
+        if(meta.playerIds[meta.activeIndex]===state.myId) playChime('yourturn');
+        CT.pushMyPlayer();
+        render();
+        try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(meta)); }catch(e){}
+      } else {
+        state.activeIndex = (state.activeIndex+1) % state.players.length;
+        if(state.activeIndex===0) state.round++;
+        state.players.forEach(p=>p.triggers.forEach(t=>t.checked=false));
+        playChime('yourturn');
+        render();
+      }
+    },
+
+    async startSyncedGame(){
+      if(state.isSpectator || !state.meta) return;
+      const ids = state.meta.playerIds||[];
+      if(!ids.length) return;
+      const meta = state.meta;
+      meta.started = true;
+      meta.activeIndex = Math.floor(Math.random()*ids.length);
+      meta.round = 1;
+      state.meta = meta;
+      state.lastTurnSignature = meta.activeIndex+':'+meta.round;
+      state.lastStarted = true;
+      if(state.myPlayer){
+        state.myPlayer.triggers.forEach(t=>t.checked=false);
+        CT.pushMyPlayer();
+      }
+      if(ids[meta.activeIndex]===state.myId) playChime('yourturn');
+      render();
+      try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(meta)); }catch(e){}
+    },
+
+    openSheet(name){ state.sheet=name; render(); },
+    closeSheet(){ state.sheet=null; render(); },
+
+    rollSingle(sides){
+      if(state.screen==='synced-game' && state.isSpectator) return;
+      const kind = sides===20 ? 'd20' : 'd6';
+      state.diceSpinning=true; render();
+      setTimeout(()=>{
+        const result = 1+Math.floor(Math.random()*sides);
+        const by = state.screen==='synced-game' ? state.myPlayer.name : '';
+        const record = {kind, result, by, ts:Date.now()};
+        state.lastRoll = record;
+        state.diceSpinning=false;
+        render();
+        if(state.screen==='synced-game') CT.pushDiceEvent(record);
+      },350);
+    },
+    rollCoin(){
+      if(state.screen==='synced-game' && state.isSpectator) return;
+      state.diceSpinning=true; render();
+      setTimeout(()=>{
+        const result = Math.random()<0.5?'Heads':'Tails';
+        const by = state.screen==='synced-game' ? state.myPlayer.name : '';
+        const record = {kind:'coin', result, by, ts:Date.now()};
+        state.lastRoll = record;
+        state.diceSpinning=false;
+        render();
+        if(state.screen==='synced-game') CT.pushDiceEvent(record);
+      },350);
+    },
+    rollForOrder(){
+      if(state.screen==='synced-game' && state.isSpectator) return;
+      const players = currentPlayers();
+      const ranking = players.map(p=>({name:p.name,color:p.color,roll:1+Math.floor(Math.random()*20)}));
+      ranking.sort((a,b)=>b.roll-a.roll);
+      const by = state.screen==='synced-game' ? state.myPlayer.name : '';
+      const record = {kind:'order', ranking, by, ts:Date.now()};
+      state.lastRoll = record;
+      render();
+      if(state.screen==='synced-game') CT.pushDiceEvent(record);
+    },
+    async pushDiceEvent(record){
+      if(!state.roomCode) return;
+      try{ await store.set(`room:${state.roomCode}:dice`, JSON.stringify(record)); }catch(e){}
+    },
+
+    setNewTrigger(val){ state.newTriggerText=val; },
+    setNewTriggerTiming(v){ state.newTriggerTiming=v; render(); },
+    async addTrigger(){
+      const text = state.newTriggerText.trim();
+      if(!text) return;
+      const id='t'+Date.now();
+      const timing = state.newTriggerTiming||'none';
+      if(state.screen==='synced-game'){
+        state.meta.triggerTemplates.push({id,text,timing});
+        state.myPlayer.triggers.push({id,text,timing,checked:false});
+        state.newTriggerText=''; state.newTriggerTiming='none';
+        render();
+        CT.pushMyPlayer();
+        try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(state.meta)); }catch(e){}
+      } else {
+        state.triggerTemplates.push({id,text,timing});
+        state.players.forEach(p=>p.triggers.push({id,text,timing,checked:false}));
+        state.newTriggerText=''; state.newTriggerTiming='none';
+        render();
+      }
+    },
+    async removeTrigger(id){
+      if(state.screen==='synced-game'){
+        state.meta.triggerTemplates = state.meta.triggerTemplates.filter(t=>t.id!==id);
+        state.myPlayer.triggers = state.myPlayer.triggers.filter(t=>t.id!==id);
+        render();
+        CT.pushMyPlayer();
+        try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(state.meta)); }catch(e){}
+      } else {
+        state.triggerTemplates = state.triggerTemplates.filter(t=>t.id!==id);
+        state.players.forEach(p=>{ p.triggers = p.triggers.filter(t=>t.id!==id); });
+        render();
+      }
+    }
+  };
+
+  window.CT = CT;
+
+  // Deep link: ?room=ABCD pre-fills the join form so a scanned QR
+  // or shared link drops the person straight into "enter your name".
+  try{
+    const params = new URLSearchParams(window.location.search);
+    const room = (params.get('room')||'').trim().toUpperCase();
+    if(room.length>=4){
+      state.formMode='join';
+      state.formCode=room.slice(0,4);
+      state.screen='connect';
+    }
+  }catch(e){}
+
+  render();
+})();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
