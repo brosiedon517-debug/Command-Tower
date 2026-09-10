@@ -390,7 +390,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   const CHIME_NOTES = {
     yourturn: [[523.25,0],[659.25,0.13],[783.99,0.26]],   // rising 3-note — it's your turn
     start:    [[880,0],[1108.73,0.1]],                    // bright quick ping — start-of-turn trigger checked
-    end:      [[698.46,0],[493.88,0.11]]                  // soft falling tone — end-of-turn trigger checked
+    end:      [[698.46,0],[493.88,0.11]],                 // soft falling tone — end-of-turn trigger checked
+    nudge:    [[587.33,0],[587.33,0.18]]                  // gentle double-tap — long turn, consider passing
   };
   function playChime(kind){
     if(!state.soundOn) return;
@@ -837,6 +838,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if(state.sheet==='settings') return renderSettingsSheet();
     if(state.sheet==='qr') return renderQrSheet();
     if(state.sheet==='turnReminder') return renderTurnReminderSheet();
+    if(state.sheet==='passTurn') return renderPassTurnSheet();
     return '<div></div>';
   }
 
@@ -864,6 +866,19 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           <h2>${p?p.name+"'s":'Your'} turn</h2>
           <div class="trig-panel" style="text-align:left;">${rows}</div>
           <button class="sheet-btn" onclick="CT.closeSheet()" style="margin-top:14px;">Got it</button>
+        </div>
+      </div>`;
+  }
+
+  function renderPassTurnSheet(){
+    const p = reminderPlayer();
+    return `
+      <div class="sheet-overlay" onclick="if(event.target===this)CT.closeSheet()">
+        <div class="sheet" style="text-align:center;">
+          <button class="icon-btn sheet-close" onclick="CT.closeSheet()">✕</button>
+          <h2>${p?p.name+',':'Hey,'} still going?</h2>
+          <p style="color:var(--ink-dim);margin:0 0 16px;">It's been a few minutes — wrap up and pass the turn when you're ready.</p>
+          <button class="sheet-btn" onclick="CT.closeSheet()">Got it</button>
         </div>
       </div>`;
   }
@@ -986,9 +1001,25 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   // ================= ACTIONS =================
   let holdTimeout=null, holdInterval=null, writeDebounce=null;
 
+  // Nudges whoever's turn it is to wrap up if the same turn has been
+  // going a while. One-shot per turn: re-armed every time a turn starts
+  // (see startTurnTimer's call sites) and cleared whenever the turn ends
+  // or the game/session is left, so it never fires for a turn that's
+  // already over. In synced games only the device whose turn it actually
+  // is arms this — see the isMyTurn checks at each call site.
+  const TURN_REMINDER_MS = 3*60*1000; // "a few minutes" — easy to retune
+  let turnTimer=null;
+  function startTurnTimer(){
+    clearTurnTimer();
+    turnTimer = setTimeout(()=>CT.showPassTurnReminder(), TURN_REMINDER_MS);
+  }
+  function clearTurnTimer(){
+    if(turnTimer){ clearTimeout(turnTimer); turnTimer=null; }
+  }
+
   const CT = {
     // navigation
-    goHome(){ CT.stopPolling(); state.screen='home'; state.sheet=null; state.isSpectator=false; state.myPlayer=null; state.myId=null; state.lastRoll=null; state.lastStarted=false; state.cardOpen={}; wasActive={}; render(); },
+    goHome(){ CT.stopPolling(); clearTurnTimer(); state.screen='home'; state.sheet=null; state.isSpectator=false; state.myPlayer=null; state.myId=null; state.lastRoll=null; state.lastStarted=false; state.cardOpen={}; wasActive={}; render(); },
     goConnect(mode){ state.screen='connect'; state.formMode=mode; state.formError=''; state.formCode=''; render(); },
     goLocalSetup(){ state.screen='local-setup'; render(); },
     syncUnavailable(){ alert("Cross-phone sync needs a quick one-time setup (free Supabase details pasted into this file). Until then, Pass-and-play works fully on a single phone."); },
@@ -1127,7 +1158,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           if(justStarted || turnAdvanced){
             state.myPlayer.triggers.forEach(t=>t.checked=false);
             changed=true;
-            if(meta.started && (meta.playerIds||[])[meta.activeIndex]===state.myId){ playChime('yourturn'); CT.maybeShowTurnReminder(); }
+            if(meta.started && (meta.playerIds||[])[meta.activeIndex]===state.myId){ playChime('yourturn'); CT.maybeShowTurnReminder(); startTurnTimer(); }
+            else clearTurnTimer();
           }
           state.lastTurnSignature = sig;
           if(changed) CT.pushMyPlayer();
@@ -1188,9 +1220,10 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       wasActive={};
       state.screen='local-game';
       CT.maybeShowTurnReminder();
+      startTurnTimer();
       render();
     },
-    newGame(){ state.screen='local-setup'; state.sheet=null; state.players=[]; wasActive={}; render(); },
+    newGame(){ clearTurnTimer(); state.screen='local-setup'; state.sheet=null; state.players=[]; wasActive={}; render(); },
 
     // shared game actions (branch on screen)
     adjustLife(id,delta){
@@ -1310,7 +1343,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         state.meta = meta;
         state.lastTurnSignature = meta.activeIndex+':'+meta.round;
         state.myPlayer.triggers.forEach(t=>t.checked=false);
-        if(meta.playerIds[meta.activeIndex]===state.myId){ playChime('yourturn'); CT.maybeShowTurnReminder(); }
+        if(meta.playerIds[meta.activeIndex]===state.myId){ playChime('yourturn'); CT.maybeShowTurnReminder(); startTurnTimer(); }
+        else clearTurnTimer();
         CT.pushMyPlayer();
         render();
         try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(meta)); }catch(e){}
@@ -1320,6 +1354,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         state.players.forEach(p=>p.triggers.forEach(t=>t.checked=false));
         playChime('yourturn');
         CT.maybeShowTurnReminder();
+        startTurnTimer();
         render();
       }
     },
@@ -1339,7 +1374,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         state.myPlayer.triggers.forEach(t=>t.checked=false);
         CT.pushMyPlayer();
       }
-      if(ids[meta.activeIndex]===state.myId){ playChime('yourturn'); CT.maybeShowTurnReminder(); }
+      if(ids[meta.activeIndex]===state.myId){ playChime('yourturn'); CT.maybeShowTurnReminder(); startTurnTimer(); }
+      else clearTurnTimer();
       render();
       try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(meta)); }catch(e){}
     },
@@ -1359,6 +1395,21 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         if(!p) return;
         if((p.triggers||[]).some(t=>t.timing==='start' && !t.checked)) state.sheet='turnReminder';
       }
+    },
+
+    // Fires from the turnTimer setTimeout, i.e. outside the normal
+    // render flow, so (unlike maybeShowTurnReminder) it has to trigger
+    // its own render. Skips quietly if a sheet is already open, or if
+    // the turn has since ended (e.g. the timer fired just as the last
+    // player passed) so a stale nudge doesn't pop up over the next turn.
+    showPassTurnReminder(){
+      turnTimer=null;
+      if(state.sheet) return;
+      if(state.screen!=='local-game' && state.screen!=='synced-game') return;
+      if(state.screen==='synced-game' && (!state.myPlayer || (state.meta.playerIds||[])[state.meta.activeIndex]!==state.myId)) return;
+      state.sheet='passTurn';
+      playChime('nudge');
+      render();
     },
 
     openSheet(name){ state.sheet=name; render(); },
