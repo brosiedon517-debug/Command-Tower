@@ -140,6 +140,14 @@ input{font-family:inherit;}
 }
 @keyframes glow{0%,100%{box-shadow:0 0 6px var(--pc);}50%{box-shadow:0 0 24px var(--pc);}}
 @keyframes foilSweep{0%{background-position:130% 130%, 0 0;}100%{background-position:-30% -30%, 0 0;}}
+/* One-shot power-down: the glow/foilSweep animation is destroyed and
+   recreated with the rest of the card every render, so just dropping
+   .active used to snap the glow off instantly the moment a turn ended.
+   .poweroff plays a short fade instead, so it reads as finishing rather
+   than being cut off. Applied only on the render where a card just lost
+   its turn (see justDeactivated in renderCardAuto). */
+@keyframes glowFadeOut{0%{box-shadow:0 0 20px var(--pc);}100%{box-shadow:0 0 0px var(--pc);}}
+.player-card.poweroff{animation:glowFadeOut .5s ease-out forwards;}
 .player-card.defeated{opacity:0.45;filter:grayscale(0.8);}
 .player-card.readonly{opacity:0.92;}
 .ribbon{position:absolute;top:10px;right:-30px;background:var(--pc);color:#0d0a16;font-size:10px;font-weight:800;padding:3px 34px;transform:rotate(35deg);letter-spacing:.05em;}
@@ -333,10 +341,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   const COLORS = {w:'#ffdf82',u:'#2fb8ff',b:'#c452e8',r:'#ff5a3c',g:'#34e08a',c:'#9fb4c9'};
   const ORDER = ['g','u','r','w','b','c'];
   const DEFAULT_TEMPLATES = [
-    {id:'t1',text:'Upkeep trigger',timing:'start'},
-    {id:'t2',text:'Draw step',timing:'start'},
-    {id:'t3',text:'Attack trigger',timing:'none'},
-    {id:'t4',text:'End step trigger',timing:'end'}
+    {id:'t1',text:'Untap and draw',timing:'start'}
   ];
 
   let state = {
@@ -734,11 +739,22 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       </div>`;
   }
 
+  // Tracks each player's active status as of the last render, so we can
+  // tell "just lost the turn this render" apart from "already inactive".
+  // The active-card glow/foil-sweep animation gets fully destroyed and
+  // recreated every render (see render()'s note above), so simply
+  // dropping the .active class made the glow vanish instantly the moment
+  // a turn ended, instead of fading out. justDeactivated triggers a
+  // one-shot power-down animation on that render only, so it reads as a
+  // finish instead of a cut.
+  let wasActive = {};
   function renderCardAuto(p, allPlayers, isActive){
-    return isCardBig(p, isActive) ? renderPlayerCard(p, allPlayers, isActive) : renderCompactCard(p, isActive);
+    const justDeactivated = wasActive[p.id]===true && !isActive;
+    wasActive[p.id] = isActive;
+    return isCardBig(p, isActive) ? renderPlayerCard(p, allPlayers, isActive, justDeactivated) : renderCompactCard(p, isActive);
   }
 
-  function renderPlayerCard(p, allPlayers, isActive){
+  function renderPlayerCard(p, allPlayers, isActive, justDeactivated){
     const editable = isEditable(p.id);
     const poison = p.poison||0;
     const defeated = p.life<=0 || poison>=10;
@@ -771,7 +787,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     }
 
     return `
-      <div class="player-card ${isActive?'active':''} ${defeated?'defeated':''} ${editable?'':'readonly'}" style="--pc:${COLORS[p.color]}${isActive?`;animation-delay:${loopDelay(6000)},${loopDelay(9500)}`:''}">
+      <div class="player-card ${isActive?'active':''} ${justDeactivated?'poweroff':''} ${defeated?'defeated':''} ${editable?'':'readonly'}" style="--pc:${COLORS[p.color]}${isActive?`;animation-delay:${loopDelay(6000)},${loopDelay(9500)}`:''}">
         ${isMonarch?`<div class="crown-badge" style="animation-delay:${loopDelay(5000)}">👑</div>`:''}
         ${isActive?'<div class="ribbon">TURN</div>':''}
         <div class="pc-header">
@@ -820,7 +836,36 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if(state.sheet==='dice') return renderDiceSheet();
     if(state.sheet==='settings') return renderSettingsSheet();
     if(state.sheet==='qr') return renderQrSheet();
+    if(state.sheet==='turnReminder') return renderTurnReminderSheet();
     return '<div></div>';
+  }
+
+  // The player whose start-of-turn reminders the popup should show: in a
+  // shared pass-and-play game that's whoever is active right now (the
+  // phone was just handed to them); in a synced game it's always this
+  // device's own player, since the popup only opens here when it's our turn.
+  function reminderPlayer(){
+    if(state.screen==='synced-game') return state.myPlayer;
+    return state.players.find(p=>p.id===currentActiveId());
+  }
+
+  function renderTurnReminderSheet(){
+    const p = reminderPlayer();
+    const pending = p ? (p.triggers||[]).filter(t=>t.timing==='start') : [];
+    const rows = pending.map(t=>`
+      <div class="trig-item ${t.checked?'checked':''}" onclick="CT.toggleTrigger('${p.id}','${t.id}')">
+        <div class="trig-box ${t.checked?'checked':''}">${t.checked?'✓':''}</div>
+        <span>${t.text}</span>
+      </div>`).join('');
+    return `
+      <div class="sheet-overlay" onclick="if(event.target===this)CT.closeSheet()">
+        <div class="sheet" style="text-align:center;">
+          <button class="icon-btn sheet-close" onclick="CT.closeSheet()">✕</button>
+          <h2>${p?p.name+"'s":'Your'} turn</h2>
+          <div class="trig-panel" style="text-align:left;">${rows}</div>
+          <button class="sheet-btn" onclick="CT.closeSheet()" style="margin-top:14px;">Got it</button>
+        </div>
+      </div>`;
   }
 
   function renderQrSheet(){
@@ -943,7 +988,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 
   const CT = {
     // navigation
-    goHome(){ CT.stopPolling(); state.screen='home'; state.sheet=null; state.isSpectator=false; state.myPlayer=null; state.myId=null; state.lastRoll=null; state.lastStarted=false; state.cardOpen={}; render(); },
+    goHome(){ CT.stopPolling(); state.screen='home'; state.sheet=null; state.isSpectator=false; state.myPlayer=null; state.myId=null; state.lastRoll=null; state.lastStarted=false; state.cardOpen={}; wasActive={}; render(); },
     goConnect(mode){ state.screen='connect'; state.formMode=mode; state.formError=''; state.formCode=''; render(); },
     goLocalSetup(){ state.screen='local-setup'; render(); },
     syncUnavailable(){ alert("Cross-phone sync needs a quick one-time setup (free Supabase details pasted into this file). Until then, Pass-and-play works fully on a single phone."); },
@@ -1082,7 +1127,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           if(justStarted || turnAdvanced){
             state.myPlayer.triggers.forEach(t=>t.checked=false);
             changed=true;
-            if(meta.started && (meta.playerIds||[])[meta.activeIndex]===state.myId) playChime('yourturn');
+            if(meta.started && (meta.playerIds||[])[meta.activeIndex]===state.myId){ playChime('yourturn'); CT.maybeShowTurnReminder(); }
           }
           state.lastTurnSignature = sig;
           if(changed) CT.pushMyPlayer();
@@ -1140,10 +1185,12 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       state.monarch=null;
       state.lastRoll=null;
       state.cardOpen={};
+      wasActive={};
       state.screen='local-game';
+      CT.maybeShowTurnReminder();
       render();
     },
-    newGame(){ state.screen='local-setup'; state.sheet=null; state.players=[]; render(); },
+    newGame(){ state.screen='local-setup'; state.sheet=null; state.players=[]; wasActive={}; render(); },
 
     // shared game actions (branch on screen)
     adjustLife(id,delta){
@@ -1263,7 +1310,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         state.meta = meta;
         state.lastTurnSignature = meta.activeIndex+':'+meta.round;
         state.myPlayer.triggers.forEach(t=>t.checked=false);
-        if(meta.playerIds[meta.activeIndex]===state.myId) playChime('yourturn');
+        if(meta.playerIds[meta.activeIndex]===state.myId){ playChime('yourturn'); CT.maybeShowTurnReminder(); }
         CT.pushMyPlayer();
         render();
         try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(meta)); }catch(e){}
@@ -1272,6 +1319,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         if(state.activeIndex===0) state.round++;
         state.players.forEach(p=>p.triggers.forEach(t=>t.checked=false));
         playChime('yourturn');
+        CT.maybeShowTurnReminder();
         render();
       }
     },
@@ -1291,9 +1339,26 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         state.myPlayer.triggers.forEach(t=>t.checked=false);
         CT.pushMyPlayer();
       }
-      if(ids[meta.activeIndex]===state.myId) playChime('yourturn');
+      if(ids[meta.activeIndex]===state.myId){ playChime('yourturn'); CT.maybeShowTurnReminder(); }
       render();
       try{ await store.set(`room:${state.roomCode}:meta`, JSON.stringify(meta)); }catch(e){}
+    },
+
+    // Opens the turn-reminder popup for whichever player's turn just
+    // started, but only if there's actually something unchecked to remind
+    // them about, and only if it doesn't clobber a sheet already open
+    // (e.g. someone mid-edit in settings when the turn happens to change).
+    maybeShowTurnReminder(){
+      if(state.sheet) return;
+      if(state.screen==='synced-game'){
+        if(!state.myPlayer) return;
+        if((state.meta.playerIds||[])[state.meta.activeIndex] !== state.myId) return;
+        if((state.myPlayer.triggers||[]).some(t=>t.timing==='start' && !t.checked)) state.sheet='turnReminder';
+      } else {
+        const p = state.players.find(x=>x.id===currentActiveId());
+        if(!p) return;
+        if((p.triggers||[]).some(t=>t.timing==='start' && !t.checked)) state.sheet='turnReminder';
+      }
     },
 
     openSheet(name){ state.sheet=name; render(); },
