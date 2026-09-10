@@ -129,7 +129,8 @@ input{font-family:inherit;}
 .topbar-icons{display:flex;gap:8px;}
 
 .players{padding:14px 16px 0;}
-.player-card{position:relative;border-radius:var(--radius);padding:16px;margin-bottom:14px;background:var(--surface);border:3px solid var(--pc,#888);overflow:hidden;transition:box-shadow .3s;}
+.player-card{position:relative;border-radius:var(--radius);padding:16px;margin-bottom:14px;background:var(--surface);border:3px solid var(--pc,#888);transition:box-shadow .3s;}
+.ribbon-clip{position:absolute;top:0;right:0;width:90px;height:90px;overflow:hidden;pointer-events:none;border-top-right-radius:var(--radius);}
 .player-card::before,.player-card::after{content:'';position:absolute;width:12px;height:12px;pointer-events:none;opacity:0.85;}
 .player-card::before{top:3px;left:3px;border-top:2px solid var(--pc);border-left:2px solid var(--pc);}
 .player-card::after{bottom:3px;right:3px;border-bottom:2px solid var(--pc);border-right:2px solid var(--pc);}
@@ -729,7 +730,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     return `
       <div class="player-card ${isActive?'active':''} ${defeated?'defeated':''} ${editable?'':'readonly'}" style="--pc:${COLORS[p.color]}">
         ${isMonarch?'<div class="crown-badge">👑</div>':''}
-        ${isActive?'<div class="ribbon">TURN</div>':''}
+        ${isActive?'<div class="ribbon-clip"><div class="ribbon">TURN</div></div>':''}
         <div class="pc-header">
           <div class="pc-dot"></div>
           <div class="pc-name">${p.name}</div>
