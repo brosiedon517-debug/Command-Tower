@@ -2,8 +2,15 @@
 // Goal: make the app shell installable and openable offline, WITHOUT ever
 // caching live game data. Supabase calls and any cross-origin request
 // (fonts, etc.) pass straight through untouched.
+//
+// Everything same-origin is network-first: always try the real network
+// response first, and only fall back to a cached copy if the network
+// genuinely fails (offline). This intentionally trades a small amount of
+// performance for correctness — with icons and app code both liable to
+// change during setup/updates, a "cache-first" static-asset strategy
+// caused stale icons to get stuck. Network-first avoids that entirely.
 
-const CACHE_NAME = 'command-tower-v1';
+const CACHE_NAME = 'command-tower-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -36,29 +43,15 @@ self.addEventListener('fetch', (event) => {
   // Only ever intercept same-origin GETs. Supabase, fonts, everything else: pass through.
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
 
-  const isHtml = req.mode === 'navigate' || url.pathname.endsWith('index.html') || url.pathname === '/';
-
-  if (isHtml) {
-    // Network-first: always try to get the latest app code when online,
-    // so a new deploy shows up immediately instead of being stuck on a cached copy.
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-          return res;
-        })
-        .catch(() => caches.match(req).then((cached) => cached || caches.match('./index.html')))
-    );
-    return;
-  }
-
-  // Cache-first for static assets (icons, manifest) — these rarely change.
+  // Network-first for everything same-origin (HTML, manifest, icons alike).
+  // Always fetch fresh when online; cache is purely an offline fallback.
   event.respondWith(
-    caches.match(req).then((cached) => cached || fetch(req).then((res) => {
-      const copy = res.clone();
-      caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-      return res;
-    }))
+    fetch(req)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+        return res;
+      })
+      .catch(() => caches.match(req).then((cached) => cached || caches.match('./index.html')))
   );
 });
