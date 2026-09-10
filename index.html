@@ -129,8 +129,7 @@ input{font-family:inherit;}
 .topbar-icons{display:flex;gap:8px;}
 
 .players{padding:14px 16px 0;}
-.player-card{position:relative;border-radius:var(--radius);padding:16px;margin-bottom:14px;background:var(--surface);border:3px solid var(--pc,#888);transition:box-shadow .3s;}
-.ribbon-clip{position:absolute;top:0;right:0;width:90px;height:90px;overflow:hidden;pointer-events:none;border-top-right-radius:var(--radius);}
+.player-card{position:relative;border-radius:var(--radius);padding:16px;margin-bottom:14px;background:var(--surface);border:3px solid var(--pc,#888);overflow:hidden;transition:box-shadow .3s;}
 .player-card::before,.player-card::after{content:'';position:absolute;width:12px;height:12px;pointer-events:none;opacity:0.85;}
 .player-card::before{top:3px;left:3px;border-top:2px solid var(--pc);border-left:2px solid var(--pc);}
 .player-card::after{bottom:3px;right:3px;border-bottom:2px solid var(--pc);border-right:2px solid var(--pc);}
@@ -266,6 +265,7 @@ body{margin:0;background:#0d0a16;}
 <body>
 
 <div id="ct-app" class="ctshell"></div>
+<div id="ct-sheet-layer"></div>
 
 <!-- QR code generator (qrcode-generator by Kazuhiko Arase, MIT license) -->
 <script>
@@ -401,6 +401,17 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   }
 
   function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.firstElementChild; }
+
+  // Phase-locked delay for infinitely-looping decorative CSS animations.
+  // Full re-renders (poll ticks, held +/- buttons, etc.) tear down and
+  // rebuild these elements often; without this every rebuild would snap
+  // the animation back to frame 0, which is what made spins/pulses/glows
+  // look like they never "cycled". Anchoring the negative delay to wall
+  // clock time makes a freshly-created element pick up exactly where a
+  // continuously-running one would be, so the loop reads as unbroken.
+  function loopDelay(durationMs){ return '-' + (Date.now() % durationMs) + 'ms'; }
+
+  let sheetMounted = null;
   function genCode(){ const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<4;i++) s+=chars[Math.floor(Math.random()*chars.length)]; return s; }
   function genId(){ return Math.random().toString(36).slice(2,8); }
   function buildJoinUrl(code){
@@ -419,7 +430,34 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     else if(state.screen==='synced-game' && state.meta && !state.meta.started) html=renderLobby();
     else html=renderGameScreen();
     app.innerHTML = html;
-    if(state.sheet){ app.appendChild(el(renderSheet())); }
+    renderSheetLayer();
+  }
+
+  // The sheet (settings/dice/QR) lives in its own layer, separate from the
+  // full-page rebuild above. Previously the sheet was recreated inside
+  // #ct-app on every render() call — including the ones fired every 2.5s
+  // by the sync poll and every 110ms while holding a +/- life button — so
+  // its slideUp entrance animation replayed constantly, which is what
+  // showed up as flickering. Now the wrapper node is only (re)created when
+  // a sheet opens or switches to a different one; while the same sheet
+  // stays open across background re-renders, only its inner content is
+  // patched in place, leaving the wrapper (and its animation) untouched.
+  function renderSheetLayer(){
+    const layer = document.getElementById('ct-sheet-layer');
+    if(!state.sheet){
+      if(sheetMounted){ layer.innerHTML=''; sheetMounted=null; }
+      return;
+    }
+    const html = renderSheet();
+    if(state.sheet !== sheetMounted || !layer.firstElementChild){
+      layer.innerHTML = html;
+      sheetMounted = state.sheet;
+    } else {
+      const wrap = layer.querySelector('.sheet');
+      const freshWrap = (function(){ const d=document.createElement('div'); d.innerHTML=html; return d.querySelector('.sheet'); })();
+      if(wrap && freshWrap) wrap.innerHTML = freshWrap.innerHTML;
+      else layer.innerHTML = html;
+    }
   }
 
   // ================= HOME =================
@@ -428,7 +466,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     return `
       <div class="home">
         <div class="home-hero">
-          <div class="wheel"></div>
+          <div class="wheel" style="animation-delay:${loopDelay(20000)}"></div>
           <h1>Command Tower</h1>
           <p>Life, turns, commander damage &amp; triggers</p>
         </div>
@@ -472,7 +510,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       <div class="setup">
         <button class="back-link" onclick="CT.goHome()">← Back</button>
         <div class="setup-hero">
-          <div class="wheel"></div>
+          <div class="wheel" style="animation-delay:${loopDelay(20000)}"></div>
           <h1>${titles[mode]}</h1>
           <p>${subs[mode]}</p>
         </div>
@@ -527,7 +565,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       <div class="setup">
         <button class="back-link" onclick="CT.goHome()">← Back</button>
         <div class="setup-hero">
-          <div class="wheel"></div>
+          <div class="wheel" style="animation-delay:${loopDelay(20000)}"></div>
           <h1>Pass-and-play</h1>
           <p>One phone, everyone takes turns holding it</p>
         </div>
@@ -587,7 +625,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       <div class="topbar">
         <div class="turn-pill">
           <div class="turn-text">Lobby
-            <span class="round">Room ${state.roomCode} <span class="live-dot"></span> live</span>
+            <span class="round">Room ${state.roomCode} <span class="live-dot" style="animation-delay:${loopDelay(2600)}"></span> live</span>
           </div>
         </div>
         <div class="topbar-icons">
@@ -627,7 +665,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         <div class="turn-pill">
           <div class="turn-dot" style="background:${COLORS[active.color]};color:${COLORS[active.color]}"></div>
           <div class="turn-text">${active.name}'s turn
-            <span class="round">Round ${currentRound()} ${synced?'<span class="live-dot"></span> live':''}</span>
+            <span class="round">Round ${currentRound()} ${synced?'<span class="live-dot" style="animation-delay:${loopDelay(2600)}"></span> live':''}</span>
           </div>
         </div>
         <div class="topbar-icons">
@@ -710,7 +748,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       const dmg = (p.cmdDmg && p.cmdDmg[op.id]) || 0;
       const lethal = dmg>=21;
       chips += `
-        <div class="cmd-chip ${lethal?'lethal':''}">
+        <div class="cmd-chip ${lethal?'lethal':''}" ${lethal?`style="animation-delay:${loopDelay(2400)}"`:''}>
           <div class="cmd-dot" style="background:${COLORS[op.color]}"></div>
           ${editable?`<button onclick="CT.cmdDmg('${p.id}','${op.id}',-1)">−</button>`:''}
           <div class="cmd-num">${dmg}</div>
@@ -728,9 +766,9 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     }
 
     return `
-      <div class="player-card ${isActive?'active':''} ${defeated?'defeated':''} ${editable?'':'readonly'}" style="--pc:${COLORS[p.color]}">
-        ${isMonarch?'<div class="crown-badge">👑</div>':''}
-        ${isActive?'<div class="ribbon-clip"><div class="ribbon">TURN</div></div>':''}
+      <div class="player-card ${isActive?'active':''} ${defeated?'defeated':''} ${editable?'':'readonly'}" style="--pc:${COLORS[p.color]}${isActive?`;animation-delay:${loopDelay(3800)},${loopDelay(6000)}`:''}">
+        ${isMonarch?`<div class="crown-badge" style="animation-delay:${loopDelay(3400)}">👑</div>`:''}
+        ${isActive?'<div class="ribbon">TURN</div>':''}
         <div class="pc-header">
           <div class="pc-dot"></div>
           <div class="pc-name">${p.name}</div>
@@ -746,7 +784,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         ${editable?`<div class="life-sub"><button onclick="CT.adjustLife('${p.id}',-5)">−5</button><button onclick="CT.adjustLife('${p.id}',5)">+5</button></div>`:''}
         <div class="cmd-row">${chips}</div>
         <div class="stat-row">
-          <div class="poison-chip ${poison>=10?'lethal':(poison>0?'warn':'')}">
+          <div class="poison-chip ${poison>=10?'lethal':(poison>0?'warn':'')}" ${poison>=10?`style="animation-delay:${loopDelay(2400)}"`:''}>
             <span>☠</span>
             ${editable?`<button onclick="CT.adjustPoison('${p.id}',-1)">−</button>`:''}
             <span class="cmd-num">${poison}</span>
@@ -821,7 +859,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if(state.diceSpinning){
       body += `<div class="die-result"><div class="num spin">🎲</div><div class="label">Rolling…</div></div>`;
     } else if(r && r.kind==='order'){
-      body += `<div class="mini-lbl" style="margin-top:14px;">${r.by?`${r.by} rolled for turn order`:'Turn order roll'}${synced?' <span class="live-dot"></span>':''}</div>
+      body += `<div class="mini-lbl" style="margin-top:14px;">${r.by?`${r.by} rolled for turn order`:'Turn order roll'}${synced?' <span class="live-dot" style="animation-delay:${loopDelay(2600)}"></span>':''}</div>
         <div class="rank-list">` + r.ranking.map((rr,idx)=>`
           <div class="rank-row ${idx===0?'winner':''}">
             <div class="rn">${idx+1}</div>
@@ -833,7 +871,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       const kindLabel = r.kind==='coin' ? 'flipped a coin' : `rolled a ${r.kind}`;
       body += `<div class="die-result">
         <div class="num">${r.result}</div>
-        <div class="label">${r.by?`${r.by} ${kindLabel}`:'Result'}${synced?' <span class="live-dot"></span>':''}</div>
+        <div class="label">${r.by?`${r.by} ${kindLabel}`:'Result'}${synced?' <span class="live-dot" style="animation-delay:${loopDelay(2600)}"></span>':''}</div>
       </div>`;
     } else if(spectating){
       body += `<div class="mini-lbl" style="margin-top:14px;">No rolls yet — waiting on the table</div>`;
