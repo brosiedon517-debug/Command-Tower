@@ -472,6 +472,17 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       sheetMounted = state.sheet;
     } else {
       const wrap = layer.querySelector('.sheet');
+      // A background update (the sync poll, most notably, every 2.5s)
+      // patches the sheet's content in place -- but if the user is
+      // mid-typing into an input inside it (e.g. the "New trigger..."
+      // field in settings), replacing that input's DOM node yanks focus
+      // and drops the on-screen keyboard on phones, every single tick.
+      // Skip the patch entirely while a text field in this sheet is
+      // focused; it'll pick up any missed changes on the next render
+      // once they're done and it blurs.
+      const active = document.activeElement;
+      const typing = active && wrap && wrap.contains(active) && (active.tagName==='INPUT' || active.tagName==='TEXTAREA');
+      if(typing) return;
       const freshWrap = (function(){ const d=document.createElement('div'); d.innerHTML=html; return d.querySelector('.sheet'); })();
       if(wrap && freshWrap) wrap.innerHTML = freshWrap.innerHTML;
       else layer.innerHTML = html;
