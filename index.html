@@ -139,6 +139,12 @@ input{font-family:inherit;}
   background-size:220% 220%, 100% 100%;
 }
 @keyframes glow{0%,100%{box-shadow:0 0 6px var(--pc);}50%{box-shadow:0 0 24px var(--pc);}}
+/* Back to a real there-and-back sweep via animation-direction:alternate
+   (see the player-card style attribute for the actual fix: the phase
+   lock needed double this duration as its modulus, not the duration
+   itself — a plain one-way sweep has no seamless way to reset from
+   -30% back to 130% without a visible snap at the loop boundary, which
+   is what "still jumps at the end" was seeing). */
 @keyframes foilSweep{0%{background-position:130% 130%, 0 0;}100%{background-position:-30% -30%, 0 0;}}
 /* One-shot power-down: the glow/foilSweep animation is destroyed and
    recreated with the rest of the card every render, so just dropping
@@ -364,6 +370,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     players:[],
     activeIndex:0,
     round:1,
+    turnStartedAt:null, // local mode only — synced mode keeps this on meta.turnStartedAt so every device shows the same clock
     // synced mode
     roomCode:null,
     myId:null,
@@ -620,6 +627,13 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     return p ? p.id : null;
   }
   function currentRound(){ return state.screen==='synced-game' ? state.meta.round : state.round; }
+  function currentTurnStartedAt(){ return state.screen==='synced-game' ? (state.meta&&state.meta.turnStartedAt) : state.turnStartedAt; }
+  function turnElapsedLabel(){
+    const startedAt = currentTurnStartedAt();
+    if(!startedAt) return '0:00';
+    const secs = Math.max(0, Math.floor((Date.now()-startedAt)/1000));
+    return Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0');
+  }
   function currentTemplates(){ return state.screen==='synced-game' ? (state.meta.triggerTemplates||[]) : state.triggerTemplates; }
   function currentMonarch(){ return state.screen==='synced-game' ? (state.meta.monarch||null) : (state.monarch||null); }
   function isEditable(id){ return state.screen==='synced-game' ? (!state.isSpectator && id===state.myId) : true; }
@@ -676,7 +690,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         <div class="turn-pill">
           <div class="turn-dot" style="background:${COLORS[active.color]};color:${COLORS[active.color]}"></div>
           <div class="turn-text">${active.name}'s turn
-            <span class="round">Round ${currentRound()} ${synced?'<span class="live-dot" style="animation-delay:${loopDelay(4200)}"></span> live':''}</span>
+            <span class="round">Round ${currentRound()} · <span class="turn-timer" id="turn-timer-badge">⏱ ${turnElapsedLabel()}</span> ${synced?'<span class="live-dot" style="animation-delay:${loopDelay(4200)}"></span> live':''}</span>
           </div>
         </div>
         <div class="topbar-icons">
@@ -787,8 +801,18 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         </div>`).join('') + `</div>`;
     }
 
+    // glow has no alternate, so its phase-lock modulus is just its
+    // duration (6000ms). foilSweep uses direction:alternate, whose true
+    // visual period is TWO durations (one forward pass, one reverse pass,
+    // back to the start) -- using just the duration as the modulus (the
+    // earlier, wrong fix) made a freshly-mounted card always land in the
+    // "forward" half of the CSS engine's own iteration count, snapping
+    // visibly whenever the wall clock said it should really be
+    // mid-reverse-pass. Passing 19000 (2*9500) lets the CSS engine's own
+    // even/odd-iteration math pick forward vs. reverse correctly,
+    // matching what a never-rebuilt element would actually be doing.
     return `
-      <div class="player-card ${isActive?'active':''} ${justDeactivated?'poweroff':''} ${defeated?'defeated':''} ${editable?'':'readonly'}" style="--pc:${COLORS[p.color]}${isActive?`;animation-delay:${loopDelay(6000)},${loopDelay(9500)}`:''}">
+      <div class="player-card ${isActive?'active':''} ${justDeactivated?'poweroff':''} ${defeated?'defeated':''} ${editable?'':'readonly'}" style="--pc:${COLORS[p.color]}${isActive?`;animation-delay:${loopDelay(6000)},${loopDelay(19000)}`:''}">
         ${isMonarch?`<div class="crown-badge" style="animation-delay:${loopDelay(5000)}">👑</div>`:''}
         ${isActive?'<div class="ribbon">TURN</div>':''}
         <div class="pc-header">
@@ -838,6 +862,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if(state.sheet==='settings') return renderSettingsSheet();
     if(state.sheet==='qr') return renderQrSheet();
     if(state.sheet==='turnReminder') return renderTurnReminderSheet();
+    if(state.sheet==='turnEndReminder') return renderTurnEndReminderSheet();
     if(state.sheet==='passTurn') return renderPassTurnSheet();
     return '<div></div>';
   }
@@ -866,6 +891,33 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           <h2>${p?p.name+"'s":'Your'} turn</h2>
           <div class="trig-panel" style="text-align:left;">${rows}</div>
           <button class="sheet-btn" onclick="CT.closeSheet()" style="margin-top:14px;">Got it</button>
+        </div>
+      </div>`;
+  }
+
+  // Confirm sheet shown by nextTurn() when the player whose turn is
+  // ending still has unchecked end-of-turn triggers. Its checkboxes only
+  // toggle for the trigger owner (matches toggleTrigger's own guard in
+  // synced games); its button is what actually advances the turn.
+  function renderTurnEndReminderSheet(){
+    const activeId = currentActiveId();
+    const p = state.screen==='synced-game'
+      ? (activeId===state.myId ? state.myPlayer : state.otherPlayers[activeId])
+      : state.players.find(x=>x.id===activeId);
+    const canEdit = state.screen!=='synced-game' || activeId===state.myId;
+    const pending = p ? (p.triggers||[]).filter(t=>t.timing==='end') : [];
+    const rows = pending.map(t=>`
+      <div class="trig-item ${t.checked?'checked':''}" ${canEdit?`onclick="CT.toggleTrigger('${p.id}','${t.id}')"`:''}>
+        <div class="trig-box ${t.checked?'checked':''}">${t.checked?'✓':''}</div>
+        <span>${t.text}</span>
+      </div>`).join('');
+    return `
+      <div class="sheet-overlay" onclick="if(event.target===this)CT.closeSheet()">
+        <div class="sheet" style="text-align:center;">
+          <button class="icon-btn sheet-close" onclick="CT.closeSheet()">✕</button>
+          <h2>${p?p.name+"'s":'End of'} turn</h2>
+          <div class="trig-panel" style="text-align:left;">${rows}</div>
+          <button class="sheet-btn" onclick="CT.advanceTurn()" style="margin-top:14px;">Next Turn →</button>
         </div>
       </div>`;
   }
@@ -1218,6 +1270,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       state.lastRoll=null;
       state.cardOpen={};
       wasActive={};
+      state.turnStartedAt=Date.now();
       state.screen='local-game';
       CT.maybeShowTurnReminder();
       startTurnTimer();
@@ -1335,11 +1388,32 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       render();
     },
 
-    async nextTurn(){
+    // Gate in front of the real turn-advance: if the player whose turn is
+    // ending has unchecked end-of-turn triggers, show them a confirm
+    // sheet first instead of silently passing the turn. Dismissing that
+    // sheet (X / tap outside) leaves the turn as-is so they can check
+    // things off and tap Next Turn again; its own "Next Turn ->" button
+    // calls advanceTurn() to actually pass the turn.
+    nextTurn(){
+      const activeId = currentActiveId();
+      const activePlayer = state.screen==='synced-game'
+        ? (activeId===state.myId ? state.myPlayer : state.otherPlayers[activeId])
+        : state.players.find(p=>p.id===activeId);
+      if(activePlayer && (activePlayer.triggers||[]).some(t=>t.timing==='end' && !t.checked)){
+        state.sheet='turnEndReminder';
+        render();
+        return;
+      }
+      CT.advanceTurn();
+    },
+
+    async advanceTurn(){
+      state.sheet=null;
       if(state.screen==='synced-game'){
         const meta = state.meta;
         meta.activeIndex = (meta.activeIndex+1) % meta.playerIds.length;
         if(meta.activeIndex===0) meta.round++;
+        meta.turnStartedAt = Date.now();
         state.meta = meta;
         state.lastTurnSignature = meta.activeIndex+':'+meta.round;
         state.myPlayer.triggers.forEach(t=>t.checked=false);
@@ -1351,6 +1425,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       } else {
         state.activeIndex = (state.activeIndex+1) % state.players.length;
         if(state.activeIndex===0) state.round++;
+        state.turnStartedAt = Date.now();
         state.players.forEach(p=>p.triggers.forEach(t=>t.checked=false));
         playChime('yourturn');
         CT.maybeShowTurnReminder();
@@ -1367,6 +1442,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       meta.started = true;
       meta.activeIndex = Math.floor(Math.random()*ids.length);
       meta.round = 1;
+      meta.turnStartedAt = Date.now();
       state.meta = meta;
       state.lastTurnSignature = meta.activeIndex+':'+meta.round;
       state.lastStarted = true;
@@ -1509,6 +1585,19 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   }catch(e){}
 
   render();
+
+  // Ticks the turn-timer badge's text directly once a second, instead of
+  // calling the full render() — a full re-render every second would tear
+  // down and rebuild the whole game screen (including the active-card
+  // glow) far more often than any real interaction does, right after
+  // fixing that same rebuild-driven jumpiness elsewhere. The badge gets
+  // its correct value at mount time regardless (see turnElapsedLabel in
+  // the topbar template), this just keeps it moving in between.
+  setInterval(()=>{
+    if(state.screen!=='local-game' && state.screen!=='synced-game') return;
+    const badge = document.getElementById('turn-timer-badge');
+    if(badge) badge.textContent = '⏱ ' + turnElapsedLabel();
+  }, 1000);
 })();
 
 if ('serviceWorker' in navigator) {
