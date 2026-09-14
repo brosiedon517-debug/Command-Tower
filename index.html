@@ -129,23 +129,36 @@ input{font-family:inherit;}
 .topbar-icons{display:flex;gap:8px;}
 
 .players{padding:14px 16px 0;}
-.player-card{position:relative;border-radius:var(--radius);padding:16px;margin-bottom:14px;background:var(--surface);border:3px solid var(--pc,#888);overflow:hidden;transition:box-shadow .3s;}
+.player-card{position:relative;z-index:0;border-radius:var(--radius);padding:16px;margin-bottom:14px;background:var(--surface);border:3px solid var(--pc,#888);overflow:hidden;transition:box-shadow .3s;}
+/* Commander art, when set: a plain child div rather than a background
+   layer on .player-card itself, since .player-card's own background is
+   already juggling the glow-sweep gradient (see foilSweep above) for
+   the active card, and stacking a third image into that same shorthand
+   would mean keeping every layer's size/position/repeat lists in sync.
+   z-index:-1 (relative to the stacking context .player-card's own
+   z-index:0 establishes) keeps it under the card's normal-flow text
+   content but above its solid background, and the baked-in gradient is
+   dark enough that life totals stay readable over any art. */
+.pc-art{position:absolute;inset:0;z-index:-1;background-size:cover;background-position:center;background-repeat:no-repeat;background-image:linear-gradient(160deg, rgba(13,10,22,.55) 0%, rgba(13,10,22,.72) 55%, rgba(13,10,22,.85) 100%), var(--art-url);}
 .player-card::before,.player-card::after{content:'';position:absolute;width:12px;height:12px;pointer-events:none;opacity:0.85;}
 .player-card::before{top:3px;left:3px;border-top:2px solid var(--pc);border-left:2px solid var(--pc);}
 .player-card::after{bottom:3px;right:3px;border-bottom:2px solid var(--pc);border-right:2px solid var(--pc);}
 .player-card.active{
-  animation:glow 6s ease-in-out infinite, foilSweep 9.5s ease-in-out infinite alternate;
+  animation:glow 6s ease-in-out infinite, foilSweep 9.5s ease-in-out infinite;
   background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.14) 48%, transparent 66%), var(--surface);
-  background-size:220% 220%, 100% 100%;
+  background-size:200% 200%, 100% 100%;
 }
 @keyframes glow{0%,100%{box-shadow:0 0 6px var(--pc);}50%{box-shadow:0 0 24px var(--pc);}}
-/* Back to a real there-and-back sweep via animation-direction:alternate
-   (see the player-card style attribute for the actual fix: the phase
-   lock needed double this duration as its modulus, not the duration
-   itself — a plain one-way sweep has no seamless way to reset from
-   -30% back to 130% without a visible snap at the loop boundary, which
-   is what "still jumps at the end" was seeing). */
-@keyframes foilSweep{0%{background-position:130% 130%, 0 0;}100%{background-position:-30% -30%, 0 0;}}
+/* One-way sweep, no alternate/reverse. This background isn't set to
+   no-repeat, so it tiles — and for a background-size of S% the tiling
+   repeats every 100*S/(S-100) points of background-position. With
+   S=200 that period is exactly 200, so animating across a 200-point
+   span (150% down to -50%) ends on a position that's pixel-identical
+   to where it started (-50% tiles the same as 150%), closing the loop
+   with no visible snap. Since this is no longer alternate, the
+   phase-lock modulus (see loopDelay in the player-card style
+   attribute) is back to the plain 9500ms duration. */
+@keyframes foilSweep{0%{background-position:150% 150%, 0 0;}100%{background-position:-50% -50%, 0 0;}}
 /* One-shot power-down: the glow/foilSweep animation is destroyed and
    recreated with the rest of the card every render, so just dropping
    .active used to snap the glow off instantly the moment a turn ended.
@@ -357,6 +370,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     formCode:'',
     formName:'',
     formColor:'g',
+    formCommander:'',
     formLife:'40',
     formCustomLife:40,
     formError:'',
@@ -366,6 +380,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     lifeMode:'40',
     customLife:40,
     setupNames:['','','','','',''],
+    setupCommanders:['','','','','',''],
     setupColors:[0,1,2,3,4,5].map(i=>ORDER[i%6]),
     players:[],
     activeIndex:0,
@@ -428,6 +443,26 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   // clock time makes a freshly-created element pick up exactly where a
   // continuously-running one would be, so the loop reads as unbroken.
   function loopDelay(durationMs){ return '-' + (Date.now() % durationMs) + 'ms'; }
+
+  function escAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+  // Commander art lookup via Scryfall's free, CORS-enabled card API.
+  // Fuzzy-matches on whatever name the player typed and returns a
+  // cropped art image URL (falls back through the double-faced-card
+  // shape, then to the full card image, if art_crop isn't there) or
+  // null if the name didn't match / the request failed — callers treat
+  // null as "no art", never as an error to surface to the player, since
+  // this is a purely cosmetic, best-effort lookup.
+  async function fetchCommanderArt(name){
+    if(!name || !name.trim()) return null;
+    try{
+      const res = await fetch('https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(name.trim()));
+      if(!res.ok) return null;
+      const card = await res.json();
+      const uris = card.image_uris || (card.card_faces && card.card_faces[0] && card.card_faces[0].image_uris);
+      return uris ? (uris.art_crop || uris.normal || uris.large || null) : null;
+    }catch(e){ return null; }
+  }
 
   let sheetMounted = null;
   function genCode(){ const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<4;i++) s+=chars[Math.floor(Math.random()*chars.length)]; return s; }
@@ -568,6 +603,9 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
             <input maxlength="14" placeholder="Your name" value="${state.formName}" oninput="CT.setFormName(this.value)">
             <div class="swatches">${swatches}</div>
           </div>
+          <div class="player-setup-row">
+            <input maxlength="60" placeholder="Commander (optional)" value="${state.formCommander}" oninput="CT.setFormCommander(this.value)">
+          </div>
         </div>`:''}
 
         ${state.formError?`<div class="error-text">${state.formError}</div>`:''}
@@ -588,6 +626,9 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         <div class="player-setup-row">
           <input maxlength="14" placeholder="Player ${i+1}" value="${state.setupNames[i]||''}" oninput="CT.setLocalName(${i},this.value)">
           <div class="swatches">${swatches}</div>
+        </div>
+        <div class="player-setup-row">
+          <input maxlength="60" placeholder="Commander (optional)" value="${state.setupCommanders[i]||''}" oninput="CT.setLocalCommander(${i},this.value)">
         </div>`;
     }
     return `
@@ -812,18 +853,12 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         </div>`).join('') + `</div>`;
     }
 
-    // glow has no alternate, so its phase-lock modulus is just its
-    // duration (6000ms). foilSweep uses direction:alternate, whose true
-    // visual period is TWO durations (one forward pass, one reverse pass,
-    // back to the start) -- using just the duration as the modulus (the
-    // earlier, wrong fix) made a freshly-mounted card always land in the
-    // "forward" half of the CSS engine's own iteration count, snapping
-    // visibly whenever the wall clock said it should really be
-    // mid-reverse-pass. Passing 19000 (2*9500) lets the CSS engine's own
-    // even/odd-iteration math pick forward vs. reverse correctly,
-    // matching what a never-rebuilt element would actually be doing.
+    // Both glow and foilSweep are plain one-directional loops now (no
+    // alternate), so each one's phase-lock modulus is just its own
+    // duration: 6000ms for glow, 9500ms for foilSweep.
     return `
-      <div class="player-card ${isActive?'active':''} ${justDeactivated?'poweroff':''} ${defeated?'defeated':''} ${editable?'':'readonly'}" style="--pc:${COLORS[p.color]}${isActive?`;animation-delay:${loopDelay(6000)},${loopDelay(19000)}`:''}">
+      <div class="player-card ${isActive?'active':''} ${justDeactivated?'poweroff':''} ${defeated?'defeated':''} ${editable?'':'readonly'}" style="--pc:${COLORS[p.color]}${isActive?`;animation-delay:${loopDelay(6000)},${loopDelay(9500)}`:''}">
+        ${p.commanderImg?`<div class="pc-art" style="--art-url:url('${escAttr(p.commanderImg)}')"></div>`:''}
         ${isMonarch?`<div class="crown-badge" style="animation-delay:${loopDelay(5000)}">👑</div>`:''}
         ${isActive?'<div class="ribbon">TURN</div>':''}
         <div class="pc-header">
@@ -1090,6 +1125,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     // connect form
     setFormCode(v){ state.formCode=v.toUpperCase().slice(0,4); },
     setFormName(v){ state.formName=v; },
+    setFormCommander(v){ state.formCommander=v; },
     setFormColor(k){ state.formColor=k; render(); },
     setFormLife(m){ state.formLife=m; render(); },
     setFormCustomLife(v){ state.formCustomLife=v; },
@@ -1098,6 +1134,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       state.formError='';
       const name = state.formName.trim() || 'Player';
       const color = state.formColor;
+      const commander = state.formCommander.trim();
       state.formBusy=true; render();
       try{
         if(state.formMode==='host'){
@@ -1105,11 +1142,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           const lifeStart = state.formLife==='custom' ? (parseInt(state.formCustomLife)||40) : parseInt(state.formLife);
           const meta = { activeIndex:0, round:1, monarch:null, started:false, triggerTemplates: DEFAULT_TEMPLATES.map(t=>({...t})), playerIds:[], lifeStart };
           await store.set(`room:${code}:meta`, JSON.stringify(meta));
-          await CT._joinRoom(code, name, color);
+          await CT._joinRoom(code, name, color, commander);
         } else if(state.formMode==='join'){
           const code = state.formCode.trim().toUpperCase();
           if(code.length<4){ state.formError='Enter the 4-character room code.'; state.formBusy=false; render(); return; }
-          await CT._joinRoom(code, name, color);
+          await CT._joinRoom(code, name, color, commander);
         } else {
           const code = state.formCode.trim().toUpperCase();
           if(code.length<4){ state.formError='Enter the 4-character room code.'; state.formBusy=false; render(); return; }
@@ -1121,16 +1158,21 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       }
     },
 
-    async _joinRoom(code, name, color){
+    async _joinRoom(code, name, color, commander){
       const metaRes = await store.get(`room:${code}:meta`);
       if(!metaRes) throw new Error('not found');
       let meta = JSON.parse(metaRes.value);
       if((meta.playerIds||[]).length>=6){ state.formError='This room is full (6 players max).'; state.formBusy=false; render(); return; }
       const id = genId();
-      const player = { id, name, color, life: meta.lifeStart, poison:0, mana:{w:0,u:0,b:0,r:0,g:0,c:0}, cmdDmg:{}, triggers: meta.triggerTemplates.map(t=>({id:t.id,text:t.text,timing:t.timing||'none',checked:false})) };
+      const player = { id, name, color, commander:(commander||''), commanderImg:null, life: meta.lifeStart, poison:0, mana:{w:0,u:0,b:0,r:0,g:0,c:0}, cmdDmg:{}, triggers: meta.triggerTemplates.map(t=>({id:t.id,text:t.text,timing:t.timing||'none',checked:false})) };
       meta.playerIds = [...(meta.playerIds||[]), id];
       await store.set(`room:${code}:meta`, JSON.stringify(meta));
       await store.set(`room:${code}:player:${id}`, JSON.stringify(player));
+      if(player.commander){
+        fetchCommanderArt(player.commander).then(url=>{
+          if(url && state.myPlayer===player){ player.commanderImg=url; CT.pushMyPlayer(); render(); }
+        });
+      }
 
       state.roomCode = code;
       state.myId = id;
@@ -1254,6 +1296,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     // local setup
     changePlayers(delta){ state.numPlayers = Math.min(6, Math.max(2, state.numPlayers+delta)); render(); },
     setLocalName(i,val){ state.setupNames[i]=val; },
+    setLocalCommander(i,val){ state.setupCommanders[i]=val; },
     setLocalColor(i,key){ state.setupColors[i]=key; render(); },
     setLifeMode(mode){ state.lifeMode=mode; render(); },
     setCustomLife(val){ state.customLife=val; },
@@ -1266,6 +1309,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           id:String(i),
           name: state.setupNames[i] && state.setupNames[i].trim() ? state.setupNames[i].trim() : `Player ${i+1}`,
           color: state.setupColors[i],
+          commander: (state.setupCommanders[i]||'').trim(),
+          commanderImg: null,
           life,
           poison:0,
           mana:{w:0,u:0,b:0,r:0,g:0,c:0},
@@ -1283,6 +1328,17 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       wasActive={};
       state.turnStartedAt=Date.now();
       state.screen='local-game';
+      // Best-effort, non-blocking: look up each typed commander's art after
+      // the game screen is already showing, and patch it in (with a
+      // re-render) whenever a lookup resolves. A slow or failed lookup
+      // never holds up starting the game -- the card just stays plain
+      // until (if) its art arrives.
+      players.forEach(p=>{
+        if(!p.commander) return;
+        fetchCommanderArt(p.commander).then(url=>{
+          if(url && state.players.indexOf(p)!==-1){ p.commanderImg=url; render(); }
+        });
+      });
       CT.maybeShowTurnReminder();
       startTurnTimer();
       render();
