@@ -531,6 +531,13 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       return base + '?room=' + code;
     }catch(e){ return code; }
   }
+  function buildOverlayUrl(code, edit){
+    try{
+      const dir = window.location.pathname.replace(/[^/]*$/,'');
+      const base = window.location.origin + dir + 'obs-overlay.html';
+      return base + '?room=' + code + (edit ? '&edit=1' : '');
+    }catch(e){ return code; }
+  }
 
   function render(){
     const app = document.getElementById('ct-app');
@@ -781,7 +788,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           ${rows}
         </div>
         ${spectating
-          ? `<p class="lobby-empty">Waiting for the host to start the game…</p>`
+          ? `<p class="lobby-empty">Waiting for the host to start the game…</p>
+             <button class="copy-btn" style="width:100%;margin-top:12px;" onclick="CT.openSheet('obsOverlay')">🖥️ Set up OBS overlay</button>`
           : `<button class="start-btn" ${players.length<1?'disabled':''} onclick="CT.startSyncedGame()">Start Game</button>
              <p class="lobby-hint">Randomly picks who goes first</p>`}
       </div>`;
@@ -810,7 +818,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       </div>
       <div class="players">${cards}</div>
       ${spectating
-        ? `<div class="bottombar"><button class="fab" onclick="CT.openSheet('dice')">🎲</button><div class="spectate-badge">👁️ Spectating — updates live</div></div>`
+        ? `<div class="bottombar"><button class="fab" onclick="CT.openSheet('dice')">🎲</button><div class="spectate-badge">👁️ Spectating — updates live</div><button class="fab" onclick="CT.openSheet('obsOverlay')" title="OBS overlay">🖥️</button></div>`
         : `<div class="bottombar">
         <button class="fab" onclick="CT.openSheet('dice')">🎲</button>
         <button class="next-turn-btn" style="--pcactive:${COLORS[active.color]}" onclick="CT.nextTurn()">Next Turn →</button>
@@ -969,6 +977,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if(state.sheet==='dice') return renderDiceSheet();
     if(state.sheet==='settings') return renderSettingsSheet();
     if(state.sheet==='qr') return renderQrSheet();
+    if(state.sheet==='obsOverlay') return renderObsOverlaySheet();
     if(state.sheet==='turnReminder') return renderTurnReminderSheet();
     if(state.sheet==='turnEndReminder') return renderTurnEndReminderSheet();
     if(state.sheet==='passTurn') return renderPassTurnSheet();
@@ -1064,6 +1073,26 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           <div class="qr-wrap">${imgHtml}</div>
           <div class="qr-code-text">${code}</div>
           <button class="sheet-btn" onclick="CT.copyLink()">Copy join link</button>
+        </div>
+      </div>`;
+  }
+
+  function renderObsOverlaySheet(){
+    const code = state.roomCode;
+    return `
+      <div class="sheet-overlay" onclick="if(event.target===this)CT.closeSheet()">
+        <div class="sheet" style="text-align:center;">
+          <button class="icon-btn sheet-close" onclick="CT.closeSheet()">✕</button>
+          <h2>OBS overlay</h2>
+          <p style="color:var(--ink-dim);font-size:13px;margin:-6px 0 16px;">Live player cards you can drag and resize, for a transparent Browser Source in OBS.</p>
+          <div class="room-code-chip" style="justify-content:center;">
+            <span>Room</span>
+            <span class="code">${code}</span>
+          </div>
+          <button class="sheet-btn" onclick="CT.copyOverlaySetupLink()">1. Copy setup link (edit mode)</button>
+          <p style="color:var(--ink-dim);font-size:12px;margin:-4px 0 14px;text-align:left;">Add a Browser Source in OBS, paste this in, tick "Transparent" won't be needed — the page is already see-through. Right-click the source → <b>Interact</b> to drag each card into place and resize it.</p>
+          <button class="sheet-btn" onclick="CT.copyOverlayBroadcastLink()">2. Copy broadcast link (clean)</button>
+          <p style="color:var(--ink-dim);font-size:12px;margin:-4px 0 4px;text-align:left;">Once your layout looks right, swap the Browser Source's URL to this one — same room, no on-screen controls. Your positions are remembered either way.</p>
         </div>
       </div>`;
   }
@@ -1277,6 +1306,12 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     },
     copyLink(){
       try{ navigator.clipboard.writeText(buildJoinUrl(state.roomCode)); }catch(e){}
+    },
+    copyOverlaySetupLink(){
+      try{ navigator.clipboard.writeText(buildOverlayUrl(state.roomCode, true)); }catch(e){}
+    },
+    copyOverlayBroadcastLink(){
+      try{ navigator.clipboard.writeText(buildOverlayUrl(state.roomCode, false)); }catch(e){}
     },
 
     startPolling(){
