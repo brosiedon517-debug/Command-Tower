@@ -229,6 +229,12 @@ input{font-family:inherit;}
 .crown-badge{position:absolute;top:10px;left:12px;font-size:18px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));animation:crownFloat 5s ease-in-out infinite;}
 @keyframes crownFloat{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-3px) rotate(4deg);}}
 
+.pay-row{display:flex;gap:8px;margin-top:12px;}
+.pay-btn{flex:1;font-size:12.5px;font-weight:800;color:#0d0a16;padding:9px 0;border-radius:10px;text-align:center;letter-spacing:.02em;}
+.pay-btn:active{transform:scale(0.94);}
+.pay-btn.pay-1{background:linear-gradient(90deg,#ffdf82,#e0b94a);box-shadow:0 0 12px rgba(255,223,130,0.4);}
+.pay-btn.pay-2{background:linear-gradient(90deg,#ff9f5a,#e8752f);box-shadow:0 0 12px rgba(255,159,90,0.4);}
+
 .trig-toggle{margin-top:14px;width:100%;text-align:left;font-size:13px;font-weight:800;color:var(--ink-dim);display:flex;align-items:center;justify-content:space-between;padding:8px 0 0;border-top:1px solid rgba(255,255,255,0.06);}
 .trig-panel{margin-top:8px;display:flex;flex-direction:column;gap:8px;}
 .trig-item{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;}
@@ -430,6 +436,23 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
         o.connect(g); g.connect(audioCtx.destination);
         o.start(now+off); o.stop(now+off+0.6);
       });
+    }catch(e){}
+  }
+
+  // "Pay the 1" / "Pay the 2" tax-effect voice prompt (Rhystic Study,
+  // Smothering Tithe, etc.) — spoken locally through this device's own
+  // speaker with the Web Speech API so it works without any audio files
+  // or network. n is 1 or 2.
+  function speakPay(n){
+    try{
+      if(!state.soundOn) return;
+      if(!('speechSynthesis' in window)){ playChime('nudge'); return; }
+      window.speechSynthesis.cancel(); // don't stack overlapping prompts
+      const u = new SpeechSynthesisUtterance(`Pay the ${n}.`);
+      u.rate = 0.92;
+      u.pitch = 0.8;
+      u.volume = 1;
+      window.speechSynthesis.speak(u);
     }catch(e){}
   }
 
@@ -891,6 +914,10 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
           </div>
         </div>
         ${renderManaRow(p, editable)}
+        ${editable?`<div class="pay-row">
+          <button class="pay-btn pay-1" onclick="CT.payPrompt(1)">🗣️ Pay the 1</button>
+          <button class="pay-btn pay-2" onclick="CT.payPrompt(2)">🗣️ Pay the 2</button>
+        </div>`:''}
         <button class="trig-toggle" onclick="CT.toggleExpand('${p.id}')">
           <span>Triggers (${checkedCount}/${(p.triggers||[]).length})</span><span>${expanded?'▴':'▾'}</span>
         </button>
@@ -1431,6 +1458,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     },
 
     toggleSound(){ state.soundOn=!state.soundOn; if(state.soundOn) playChime('yourturn'); render(); },
+
+    // Speaks "Pay the 1" / "Pay the 2" out loud from this device — local
+    // only, no sync needed, since the pressing player's phone is right
+    // there at the table.
+    payPrompt(n){ speakPay(n); },
 
     toggleExpand(id){ state.expanded[id]=!state.expanded[id]; render(); },
     toggleCardOpen(id){
