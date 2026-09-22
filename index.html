@@ -441,26 +441,33 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     }catch(e){}
   }
 
-  // "Pay the 1" / "Pay the 2" tax-effect voice prompt (Rhystic Study,
+  // "Pay the 1?" / "Pay the 2?" tax-effect voice prompt (Rhystic Study,
   // Smothering Tithe, etc.) — spoken locally through this device's own
   // speaker with the Web Speech API so it works without any audio files
   // or network. n is 1 or 2. Hidden behind Settings > Pay prompts until
   // the player turns it on (see payPromptsEnabled).
-  const MYSTIC_LINES = { 1:'The Tower commands. Pay... the one.', 2:'The Tower commands. Pay... the two.' };
+  const PAY_LINES = { 1:'Pay the 1?', 2:'Pay the 2?' };
 
-  // Best-effort pick of a deeper/more dramatic system voice for the
-  // prompt. getVoices() can come back empty on first call (it loads
-  // async on some browsers) — that's fine, we just fall back to
-  // whatever default voice the pitch/rate settings below already darken.
-  function pickMysticVoice(){
+  // Picks the most natural-sounding voice available rather than the
+  // platform's default robotic one. Phones ship a handful of "quality"
+  // voices (iOS: Enhanced/Premium/Siri; Android/Chrome: Google Wavenet/
+  // Neural, or any network-backed, non-local voice) alongside older
+  // compact/robotic ones — we bias hard toward those, then toward a
+  // deeper, more commanding tone as a tiebreak. getVoices() can come
+  // back empty on first call (it loads async on some browsers); that's
+  // fine, we just fall back to the platform default.
+  function pickRealisticVoice(){
     try{
       const voices = window.speechSynthesis.getVoices();
       if(!voices || !voices.length) return null;
       const score = v => {
         const n=(v.name||'').toLowerCase();
         let s=0;
-        if(/male|daniel|david|fred|arthur|oliver|james|george|gordon|eddy/.test(n)) s+=3;
-        if(/uk|british|gb|en-gb/.test(n)) s+=1;
+        if(/natural|enhanced|premium|neural|wavenet|studio|siri/.test(n)) s+=5;
+        if(v.localService===false) s+=2; // network voices are almost always higher quality
+        if(/male|daniel|david|fred|arthur|oliver|james|george|gordon|eddy/.test(n)) s+=1;
+        if(/uk|british|gb|en-gb/.test(n)) s+=0.5;
+        if(/compact/.test(n)) s-=3; // iOS's low-quality fallback voices
         return s;
       };
       return voices.slice().sort((a,b)=>score(b)-score(a))[0] || null;
@@ -473,11 +480,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       playChime('mystic');
       if(!('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel(); // don't stack overlapping prompts
-      const u = new SpeechSynthesisUtterance(MYSTIC_LINES[n] || `Pay the ${n}.`);
-      const voice = pickMysticVoice();
+      const u = new SpeechSynthesisUtterance(PAY_LINES[n] || `Pay the ${n}?`);
+      const voice = pickRealisticVoice();
       if(voice) u.voice = voice;
-      u.rate = 0.78;   // slow, deliberate
-      u.pitch = 0.55;  // deep, ominous
+      u.rate = 0.96;   // near-natural pace
+      u.pitch = 0.92;  // just a touch lower for weight, not distorted
       u.volume = 1;
       // let the mystic chime's swell lead in before the voice arrives
       setTimeout(()=>{ try{ window.speechSynthesis.speak(u); }catch(e){} }, 260);
